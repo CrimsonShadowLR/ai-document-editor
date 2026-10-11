@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type Ref } from "react";
 
+import { useClampedLeft } from "../hooks/useClampedLeft";
 import type { Anchor } from "../hooks/useEditorAnchors";
 import { QUICK_ACTIONS, type QuickAction } from "../quickActions";
 
@@ -14,6 +15,7 @@ interface SelectionPopupProps {
 
 export function SelectionPopup({ anchor, disabledReason, onAction, onDismiss, inputRef }: SelectionPopupProps) {
   const [custom, setCustom] = useState("");
+  const ref = useClampedLeft<HTMLDivElement>(anchor.left);
 
   const submitCustom = (event: FormEvent) => {
     event.preventDefault();
@@ -23,8 +25,9 @@ export function SelectionPopup({ anchor, disabledReason, onAction, onDismiss, in
 
   return (
     <div
-      className="absolute z-10 flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
-      style={{ top: anchor.top, left: anchor.left }}
+      ref={ref}
+      className="absolute z-10 flex max-w-full flex-wrap items-center gap-1 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+      style={{ top: anchor.top }}
       // Keep the editor's selection while clicking buttons.
       onMouseDown={(event) => {
         if (!(event.target instanceof HTMLInputElement)) event.preventDefault();

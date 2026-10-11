@@ -71,7 +71,12 @@ export function resolveChanges(view: EditorView, status: ChangeStatus, id: numbe
   const range = view.state.field(suggestionField);
   if (!range?.segments) return;
   const changes = changesOf(range.segments);
-  if (changes.length === 0 || changes.some((change) => change.status === "pending")) return;
+  if (changes.length === 0) {
+    // The AI suggested nothing to change: accepting or rejecting just closes.
+    view.dispatch({ effects: closeSuggestion.of(null) });
+    return;
+  }
+  if (changes.some((change) => change.status === "pending")) return;
 
   const text = resolveText(range.segments);
   const changed = text !== view.state.sliceDoc(range.from, range.to);

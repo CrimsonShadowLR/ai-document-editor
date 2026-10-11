@@ -86,7 +86,7 @@ history + document in localStorage
 - **Streaming the reason.** Show the AI's explanation while the replacement is still generating, then show the diff once it's complete.
 - **Rendered Markdown preview** next to the source, and a rich-text mode.
 - **Real-time multi-user editing** (e.g. Yjs), with AI suggestions visible to every collaborator.
-- **Clean up template leftovers:** `zod` is unused, and `react-router` serves a single route.
+- **Smaller bundle:** CodeMirror's Markdown mode bundles the HTML, CSS and JS modes (~330 kB gzipped in total). Lazy-loading them would cut the initial load.
 
 ## How I used AI to build this
 

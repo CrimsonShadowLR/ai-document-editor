@@ -3,6 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "../../../shared/ui/Button";
 import type { SuggestionRange } from "../codemirror/suggestionField";
 import { changesOf } from "../diff/diffSegments";
+import { useClampedLeft } from "../hooks/useClampedLeft";
 import type { Anchor } from "../hooks/useEditorAnchors";
 import { MAX_REFINE_TURNS, type SuggestionState } from "../hooks/useSuggestion";
 
@@ -28,10 +29,12 @@ export function SuggestionCard({
   onRefine,
 }: SuggestionCardProps) {
   const trail = [...state.request.previousLabels, state.request.action.label];
+  const ref = useClampedLeft<HTMLDivElement>(anchor.left);
   return (
     <div
-      className="absolute z-10 w-96 max-w-[calc(100%-1rem)] rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-lg"
-      style={{ top: anchor.top, left: Math.max(0, anchor.left) }}
+      ref={ref}
+      className="absolute z-10 w-96 max-w-full rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-lg"
+      style={{ top: anchor.top }}
     >
       <p className="mb-2 text-xs font-medium uppercase tracking-wide text-brand" title={trail.join(" → ")}>
         {trail.join(" → ")}
