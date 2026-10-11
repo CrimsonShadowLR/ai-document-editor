@@ -46,6 +46,14 @@ Errors: no key or no models → 503 with a clear message; unknown model → 400;
 6. **History**: snapshot after each accepted edit; side timeline with view and restore.
 7. **Polish and docs**: error states, shortcuts (Ctrl+Enter accept, Esc reject), README sections, AI transcripts in `ai-sessions/`.
 
+## Status
+
+All seven steps are done. Changes made along the way:
+
+- Dev provider: OpenRouter `:free` models instead of Groq. Nemotron is the default because Gemma's free endpoint is often busy upstream.
+- Diff: changes split by 1–2 unchanged words on the same line are merged, so a rewrite isn't nine tiny changes.
+- Shortcuts: Ctrl/⌘+K focuses the popup's instruction box (on top of Ctrl/⌘+Enter and Esc).
+
 ## Left out on purpose
 
 - Streaming, real-time multi-user editing, auth, server storage, LangChain/LangSmith, several open suggestions at once.
