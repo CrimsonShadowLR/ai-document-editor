@@ -13,8 +13,11 @@ import {
 } from "../codemirror/suggestionField";
 import { diffSegments } from "../diff/diffSegments";
 import type { QuickAction } from "../quickActions";
-import type { SuggestionResponse } from "../schema/suggestion";
+import type { SuggestionResponse, SuggestionTurn } from "../schema/suggestion";
 import { useCreateSuggestion } from "./useCreateSuggestion";
+
+/** The backend accepts at most this many earlier rounds. */
+export const MAX_REFINE_TURNS = 10;
 
 /** What was asked, kept so a failed request can be retried as-is. */
 interface SuggestionRequest {
@@ -22,6 +25,10 @@ interface SuggestionRequest {
   before: string;
   original: string;
   after: string;
+  /** Earlier rounds of this suggestion, oldest first (refine). */
+  turns: SuggestionTurn[];
+  /** Labels of the earlier rounds, for the "Improve → Shorter" trail. */
+  previousLabels: string[];
 }
 
 export type SuggestionState =
@@ -66,7 +73,7 @@ export function useSuggestion(view: EditorView | null, model: string | null) {
           after: request.after,
           instruction: request.action.instruction,
           model,
-          turns: [],
+          turns: request.turns,
         });
         if (requestId !== latestRequestId.current) return;
         view.dispatch({ effects: showSuggestionDiff.of(diffSegments(request.original, result.replacement)) });
@@ -95,6 +102,8 @@ export function useSuggestion(view: EditorView | null, model: string | null) {
         before: doc.sliceString(0, from),
         original: doc.sliceString(from, to),
         after: doc.sliceString(to),
+        turns: [],
+        previousLabels: [],
       });
     },
     [view, run],
@@ -103,6 +112,25 @@ export function useSuggestion(view: EditorView | null, model: string | null) {
   const retry = useCallback(() => {
     if (state.status === "error") void run(state.request);
   }, [state, run]);
+
+  /**
+   * Follow-up on the current suggestion ("now shorter"). The model sees the
+   * earlier rounds; the new diff is still against the original text, which is
+   * what the document holds. Decisions on the old diff are dropped.
+   */
+  const refine = useCallback(
+    (instruction: string) => {
+      if (state.status !== "ready" || state.request.turns.length >= MAX_REFINE_TURNS) return;
+      const { request: previous, result } = state;
+      void run({
+        ...previous,
+        action: { label: instruction, instruction },
+        turns: [...previous.turns, { instruction: previous.action.instruction, replacement: result.replacement }],
+        previousLabels: [...previous.previousLabels, previous.action.label],
+      });
+    },
+    [state, run],
+  );
 
   /** Close without touching the document (cancel, dismiss, nothing to change). */
   const close = useCallback(() => {
@@ -131,5 +159,5 @@ export function useSuggestion(view: EditorView | null, model: string | null) {
     }
   }, []);
 
-  return { state, range, request, retry, close, acceptAll, rejectAll, syncFromEditor };
+  return { state, range, request, retry, refine, close, acceptAll, rejectAll, syncFromEditor };
 }

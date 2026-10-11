@@ -61,6 +61,7 @@ export function Editor() {
             onRejectAll={suggestion.rejectAll}
             onClose={suggestion.close}
             onRetry={suggestion.retry}
+            onRefine={suggestion.refine}
           />
         )}
       </div>

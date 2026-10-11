@@ -1,8 +1,10 @@
+import { useState, type FormEvent } from "react";
+
 import { Button } from "../../../shared/ui/Button";
 import type { SuggestionRange } from "../codemirror/suggestionField";
 import { changesOf } from "../diff/diffSegments";
 import type { Anchor } from "../hooks/useEditorAnchors";
-import type { SuggestionState } from "../hooks/useSuggestion";
+import { MAX_REFINE_TURNS, type SuggestionState } from "../hooks/useSuggestion";
 
 interface SuggestionCardProps {
   anchor: Anchor;
@@ -12,6 +14,7 @@ interface SuggestionCardProps {
   onRejectAll: () => void;
   onClose: () => void;
   onRetry: () => void;
+  onRefine: (instruction: string) => void;
 }
 
 export function SuggestionCard({
@@ -22,14 +25,16 @@ export function SuggestionCard({
   onRejectAll,
   onClose,
   onRetry,
+  onRefine,
 }: SuggestionCardProps) {
+  const trail = [...state.request.previousLabels, state.request.action.label];
   return (
     <div
       className="absolute z-10 w-96 max-w-[calc(100%-1rem)] rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-lg"
       style={{ top: anchor.top, left: Math.max(0, anchor.left) }}
     >
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-brand">
-        {state.request.action.label}
+      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-brand" title={trail.join(" → ")}>
+        {trail.join(" → ")}
       </p>
 
       {state.status === "loading" && (
@@ -54,13 +59,16 @@ export function SuggestionCard({
       )}
 
       {state.status === "ready" && (
-        <ReadyContent
-          reason={state.result.reason}
-          range={range}
-          onAcceptAll={onAcceptAll}
-          onRejectAll={onRejectAll}
-          onClose={onClose}
-        />
+        <>
+          <ReadyContent
+            reason={state.result.reason}
+            range={range}
+            onAcceptAll={onAcceptAll}
+            onRejectAll={onRejectAll}
+            onClose={onClose}
+          />
+          {state.request.turns.length < MAX_REFINE_TURNS && <RefineForm onRefine={onRefine} />}
+        </>
       )}
     </div>
   );
@@ -106,5 +114,29 @@ function ReadyContent({ reason, range, onAcceptAll, onRejectAll, onClose }: Read
         <Button onClick={onAcceptAll}>{decided > 0 ? "Accept rest" : "Accept all"}</Button>
       </div>
     </>
+  );
+}
+
+function RefineForm({ onRefine }: { onRefine: (instruction: string) => void }) {
+  const [instruction, setInstruction] = useState("");
+
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (instruction.trim()) onRefine(instruction.trim());
+  };
+
+  return (
+    <form onSubmit={submit} className="mt-3 flex gap-2 border-t border-slate-100 pt-3">
+      <input
+        className="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-sm placeholder:text-slate-400 focus:border-brand focus:outline-none"
+        placeholder="Refine: “shorter”, “more formal”…"
+        aria-label="Refine this suggestion"
+        value={instruction}
+        onChange={(event) => setInstruction(event.target.value)}
+      />
+      <Button type="submit" variant="secondary" disabled={!instruction.trim()}>
+        Refine
+      </Button>
+    </form>
   );
 }
