@@ -14,9 +14,10 @@ import { useSuggestion, type AppliedEdit } from "./hooks/useSuggestion";
 import { useSuggestionShortcuts } from "./hooks/useSuggestionShortcuts";
 import type { HistoryEntry } from "./schema/history";
 import { formatTime } from "./formatTime";
+import { MAX_SELECTION_CHARS } from "./limits";
 
 export function Editor() {
-  const { content, setContent, isSaved } = useDocument();
+  const { content, setContent, isSaved, saveFailed } = useDocument();
   const modelSelection = useSelectedModel();
   const [view, setView] = useState<EditorView | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -96,9 +97,19 @@ export function Editor() {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-4">
-        <ModelPicker {...modelSelection} />
+        <ModelPicker
+          {...modelSelection}
+          // One model per suggestion: a refine or retry must not switch models mid-way.
+          lockedReason={suggestion.state.status === "idle" ? null : "Finish the open suggestion to change the model"}
+        />
         <div className="flex items-center gap-4">
-          <span className="text-xs text-slate-400">{isSaved ? "Saved" : "Saving…"}</span>
+          {saveFailed ? (
+            <span className="text-xs text-red-600" title="Browser storage is full or blocked (e.g. private mode)">
+              Not saved
+            </span>
+          ) : (
+            <span className="text-xs text-slate-400">{isSaved ? "Saved" : "Saving…"}</span>
+          )}
           <button
             type="button"
             className="text-sm text-slate-600 hover:text-slate-900"
@@ -116,7 +127,13 @@ export function Editor() {
             <SelectionPopup
               key={selectionKey}
               anchor={selection}
-              disabledReason={modelSelection.selected ? null : "No AI model available"}
+              disabledReason={
+                !modelSelection.selected
+                  ? "No AI model available"
+                  : selection.to - selection.from > MAX_SELECTION_CHARS
+                    ? `Selection too long for the AI (max ${MAX_SELECTION_CHARS.toLocaleString()} characters)`
+                    : null
+              }
               inputRef={popupInputRef}
               onAction={(action) => {
                 setRequestAnchor(selection);

@@ -11,10 +11,13 @@ export function readStorage<T>(key: string, fallback: T): T {
   }
 }
 
-export function writeStorage<T>(key: string, value: T): void {
+/** Returns false when the value couldn't be saved (storage full or unavailable). */
+export function writeStorage<T>(key: string, value: T): boolean {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
+    return true;
   } catch {
-    // Storage full or unavailable: keep working in memory.
+    // Keep working in memory; the caller decides whether to tell the user.
+    return false;
   }
 }

@@ -2,6 +2,7 @@ import { useState, type FormEvent, type Ref } from "react";
 
 import { useClampedLeft } from "../hooks/useClampedLeft";
 import type { Anchor } from "../hooks/useEditorAnchors";
+import { MAX_INSTRUCTION_CHARS } from "../limits";
 import { QUICK_ACTIONS, type QuickAction } from "../quickActions";
 
 interface SelectionPopupProps {
@@ -56,6 +57,7 @@ export function SelectionPopup({ anchor, disabledReason, onAction, onDismiss, in
               ref={inputRef}
               className="w-56 rounded-md border border-slate-200 px-2 py-1 text-sm placeholder:text-slate-400 focus:border-brand focus:outline-none"
               placeholder="Or tell the AI what to do… (Ctrl+K)"
+              maxLength={MAX_INSTRUCTION_CHARS}
               value={custom}
               onChange={(event) => setCustom(event.target.value)}
             />

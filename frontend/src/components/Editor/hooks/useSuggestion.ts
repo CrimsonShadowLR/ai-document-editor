@@ -12,6 +12,7 @@ import {
   type SuggestionRange,
 } from "../codemirror/suggestionField";
 import { diffSegments } from "../diff/diffSegments";
+import { MAX_CONTEXT_CHARS } from "../limits";
 import type { QuickAction } from "../quickActions";
 import type { SuggestionResponse, SuggestionTurn } from "../schema/suggestion";
 import { useCreateSuggestion } from "./useCreateSuggestion";
@@ -141,9 +142,10 @@ export function useSuggestion(
       view.dispatch({ effects: openSuggestion.of({ from, to }), selection: { anchor: to } });
       void run({
         action,
-        before: doc.sliceString(0, from),
+        // Very long documents: send only the nearest context on each side.
+        before: doc.sliceString(Math.max(0, from - MAX_CONTEXT_CHARS), from),
         original: doc.sliceString(from, to),
-        after: doc.sliceString(to),
+        after: doc.sliceString(to, Math.min(doc.length, to + MAX_CONTEXT_CHARS)),
         turns: [],
         previousLabels: [],
         previous: null,

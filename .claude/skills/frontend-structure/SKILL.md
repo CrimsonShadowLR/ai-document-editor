@@ -15,7 +15,6 @@ frontend/src/
 ├── shared/
 │   ├── httpClient.ts        # axios instance: get/post (abortable), errorMessage()
 │   ├── storage.ts           # readStorage/writeStorage: localStorage that never throws
-│   ├── useDebouncedValue.ts
 │   └── ui/                  # Button (shared, dumb, styled)
 └── components/
     ├── layout/AppLayout.tsx # header + <Outlet />
@@ -26,7 +25,7 @@ frontend/src/
         │                    # plus the feature's other hooks (state, persistence, editor wiring)
         ├── components/      # feature-private components
         ├── schema/          # wire and stored types (interface)
-        └── *.ts             # small feature helpers (quickActions.ts, formatTime.ts, ...)
+        └── *.ts             # small feature helpers (quickActions.ts, formatTime.ts, limits.ts, ...)
 ```
 
 The `Editor` feature also has `codemirror/` (the suggestion `StateField`, its decorations and range lock) and `diff/` (`diffSegments.ts`: jsdiff output → reviewable changes).

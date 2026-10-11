@@ -4,6 +4,7 @@ import { Button } from "../../../shared/ui/Button";
 import type { SuggestionRange } from "../codemirror/suggestionField";
 import { changesOf } from "../diff/diffSegments";
 import { useClampedLeft } from "../hooks/useClampedLeft";
+import { MAX_INSTRUCTION_CHARS } from "../limits";
 import type { Anchor } from "../hooks/useEditorAnchors";
 import { MAX_REFINE_TURNS, type SuggestionState } from "../hooks/useSuggestion";
 
@@ -136,6 +137,7 @@ function RefineForm({ onRefine }: { onRefine: (instruction: string) => void }) {
       <input
         className="min-w-0 flex-1 rounded-md border border-slate-200 px-2 py-1 text-sm placeholder:text-slate-400 focus:border-brand focus:outline-none"
         placeholder="Refine: “shorter”, “more formal”…"
+        maxLength={MAX_INSTRUCTION_CHARS}
         aria-label="Refine this suggestion"
         value={instruction}
         onChange={(event) => setInstruction(event.target.value)}
