@@ -4,6 +4,9 @@ export interface SuggestionTurn {
   replacement: string;
 }
 
+/** Which UI action started a request (mirrors the backend's SuggestionFeature). */
+export type SuggestionFeature = "improve" | "shorter" | "formal" | "custom" | "refine";
+
 /** Wire shape of `POST /suggestions`. The document is split around the selection. */
 export interface CreateSuggestionBody {
   before: string;
@@ -12,6 +15,7 @@ export interface CreateSuggestionBody {
   instruction: string;
   model: string | null;
   turns: SuggestionTurn[];
+  feature: SuggestionFeature;
 }
 
 export interface SuggestionResponse {

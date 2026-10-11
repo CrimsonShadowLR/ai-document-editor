@@ -1,8 +1,8 @@
 import httpx
 import pytest
 
-from ..llm import LlmClient, LlmNotConfiguredError, LlmRateLimitedError, LlmUnavailableError
-from ..llm.llm_client import _provider_error
+from ..llm import LlmClient, LlmNotConfiguredError, LlmRateLimitedError, LlmUnavailableError, TokenUsage
+from ..llm.llm_client import _provider_error, _token_usage
 
 MESSAGES = [{"role": "user", "content": "hi"}]
 
@@ -29,7 +29,9 @@ async def test_posts_chat_completion_and_returns_content():
         seen["body"] = request.read()
         return httpx.Response(200, json=_completion("hello"))
 
-    assert await _client(handler).complete("model-a", MESSAGES) == "hello"
+    completion = await _client(handler).complete("model-a", MESSAGES)
+    assert completion.content == "hello"
+    assert completion.usage.prompt_tokens == 3
     assert seen["url"] == "https://llm.test/v1/chat/completions"
     assert seen["auth"] == "Bearer secret"
     assert b'"model":"model-a"' in seen["body"]
@@ -91,3 +93,21 @@ async def test_upstream_5xx_suggests_another_model():
 )
 def test_provider_error_extracts_a_short_message(response, expected):
     assert _provider_error(response) == expected
+
+
+def test_token_usage_reads_openrouter_cost_and_reasoning_tokens():
+    usage = _token_usage(
+        {
+            "prompt_tokens": 205,
+            "completion_tokens": 194,
+            "completion_tokens_details": {"reasoning_tokens": 150},
+            "cost": 0.00012,
+        }
+    )
+
+    assert usage == TokenUsage(prompt_tokens=205, completion_tokens=194, reasoning_tokens=150, cost_usd=0.00012)
+
+
+@pytest.mark.parametrize("raw", [None, "nope", {"prompt_tokens": "12", "cost": True}])
+def test_token_usage_tolerates_missing_or_odd_values(raw):
+    assert _token_usage(raw) == TokenUsage()

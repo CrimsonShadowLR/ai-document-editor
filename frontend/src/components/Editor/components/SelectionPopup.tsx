@@ -21,7 +21,7 @@ export function SelectionPopup({ anchor, disabledReason, onAction, onDismiss, in
   const submitCustom = (event: FormEvent) => {
     event.preventDefault();
     const instruction = custom.trim();
-    if (instruction) onAction({ label: instruction, instruction });
+    if (instruction) onAction({ label: instruction, instruction, feature: "custom" });
   };
 
   return (

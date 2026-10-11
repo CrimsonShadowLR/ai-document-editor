@@ -28,7 +28,8 @@ The user writes Markdown. They select text and ask the AI for help (Improve, Sho
 | Endpoint | Input → Output |
 |---|---|
 | `GET /models` | → `{models: string[], default: string}` from `LLM_MODELS` |
-| `POST /suggestions` | `{before, selection, after, instruction, model?, turns[]}` → `{replacement, reason, model}` |
+| `POST /suggestions` | `{before, selection, after, instruction, model?, turns[], feature}` → `{replacement, reason, model}` |
+| `GET /usage` | → requests, tokens and cost (USD) in total, per feature and per model, since the server started |
 
 `turns[]` holds earlier refine steps (instruction + replacement), so a follow-up builds on the last result.
 

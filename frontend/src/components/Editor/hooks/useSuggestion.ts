@@ -115,6 +115,7 @@ export function useSuggestion(
             instruction: request.action.instruction,
             model,
             turns: request.turns,
+            feature: request.action.feature,
           },
           signal: controller.signal,
         });
@@ -169,7 +170,7 @@ export function useSuggestion(
       const { request: previous, result } = state;
       void run({
         ...previous,
-        action: { label: instruction, instruction },
+        action: { label: instruction, instruction, feature: "refine" },
         turns: [...previous.turns, { instruction: previous.action.instruction, replacement: result.replacement }],
         previousLabels: [...previous.previousLabels, previous.action.label],
         previous: state,

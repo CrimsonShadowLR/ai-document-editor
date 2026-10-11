@@ -8,10 +8,22 @@ os.environ["LLM_API_KEY"] = "test-key"
 os.environ["LLM_MODELS"] = "model-a,model-b"
 
 # App imports must come after the env is set: config is read at import time.
+import pytest  # noqa: E402
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
 from ..main import app  # noqa: E402
+from ..usage import UsageTracker, get_usage_tracker  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def usage_tracker():
+    """A fresh usage tracker per test, so totals never leak between tests."""
+
+    tracker = UsageTracker()
+    app.dependency_overrides[get_usage_tracker] = lambda: tracker
+    yield tracker
+    app.dependency_overrides.pop(get_usage_tracker, None)
 
 
 @pytest_asyncio.fixture

@@ -1,5 +1,6 @@
 import time
-from typing import Literal, TypedDict
+from dataclasses import dataclass
+from typing import Any, Literal, TypedDict
 
 import httpx
 import structlog
@@ -13,6 +14,23 @@ logger = structlog.get_logger(__name__)
 class ChatMessage(TypedDict):
     role: Literal["system", "user", "assistant"]
     content: str
+
+
+@dataclass(frozen=True)
+class TokenUsage:
+    """What one call consumed, as reported by the provider (None when it doesn't say)."""
+
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
+    reasoning_tokens: int | None = None
+    # OpenRouter returns the cost in USD with every response; other providers may not.
+    cost_usd: float | None = None
+
+
+@dataclass(frozen=True)
+class Completion:
+    content: str
+    usage: TokenUsage
 
 
 class LlmClient:
@@ -33,8 +51,8 @@ class LlmClient:
         self._timeout_seconds = timeout_seconds
         self._transport = transport
 
-    async def complete(self, model: str, messages: list[ChatMessage]) -> str:
-        """Return the assistant message text for one chat completion."""
+    async def complete(self, model: str, messages: list[ChatMessage]) -> Completion:
+        """Return the assistant message text and token usage for one chat completion."""
 
         if not self._api_key:
             raise LlmNotConfiguredError("LLM_API_KEY is not set in .env.")
@@ -90,15 +108,42 @@ class LlmClient:
         if not isinstance(content, str) or not content.strip():
             raise LlmUnavailableError("The AI provider returned an empty response.")
 
-        usage = body.get("usage") or {}
+        usage = _token_usage(body.get("usage"))
         logger.info(
             "llm.completed",
             model=model,
             duration_ms=duration_ms,
-            prompt_tokens=usage.get("prompt_tokens"),
-            completion_tokens=usage.get("completion_tokens"),
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            reasoning_tokens=usage.reasoning_tokens,
+            cost_usd=usage.cost_usd,
         )
-        return content
+        return Completion(content=content, usage=usage)
+
+
+def _token_usage(raw: Any) -> TokenUsage:
+    """Read the OpenAI-style ``usage`` object; missing or odd values become None."""
+
+    if not isinstance(raw, dict):
+        return TokenUsage()
+
+    def number(value: Any) -> float | None:
+        # bool is an int subclass; never count True as a token.
+        return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+    def integer(value: Any) -> int | None:
+        parsed = number(value)
+        return int(parsed) if parsed is not None else None
+
+    details = raw.get("completion_tokens_details")
+    reasoning = details.get("reasoning_tokens") if isinstance(details, dict) else None
+    cost = number(raw.get("cost"))
+    return TokenUsage(
+        prompt_tokens=integer(raw.get("prompt_tokens")),
+        completion_tokens=integer(raw.get("completion_tokens")),
+        reasoning_tokens=integer(reasoning),
+        cost_usd=float(cost) if cost is not None else None,
+    )
 
 
 def _provider_error(response: httpx.Response) -> str | None:

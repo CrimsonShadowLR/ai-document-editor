@@ -1,4 +1,9 @@
-from .create_suggestion import CreateSuggestionHandler, CreateSuggestionRequest, SuggestionTurn
+from .create_suggestion import (
+    CreateSuggestionHandler,
+    CreateSuggestionRequest,
+    SuggestionFeature,
+    SuggestionTurn,
+)
 from .errors import MalformedSuggestionError, NoModelsConfiguredError, UnknownModelError
 from .suggestion_response import SuggestionResponse
 
@@ -7,6 +12,7 @@ __all__ = [
     "CreateSuggestionRequest",
     "MalformedSuggestionError",
     "NoModelsConfiguredError",
+    "SuggestionFeature",
     "SuggestionResponse",
     "SuggestionTurn",
     "UnknownModelError",

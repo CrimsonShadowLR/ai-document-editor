@@ -28,7 +28,9 @@ Open http://localhost:5173. An example document is loaded on the first visit, so
 
 `.env.example` lists two free OpenRouter models (`:free`, no credits needed, about 50 requests a day). Any OpenAI-compatible provider works: set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODELS`.
 
-Checks: `make test` (backend: 44 pytest tests with the AI mocked; frontend: 23 Vitest tests for the diff logic and the CodeMirror suggestion state), `make lint`, `make build`.
+**Token and cost usage:** open http://localhost:8000/usage to see requests, tokens (prompt, completion, reasoning) and cost in USD per feature (Improve, Shorter, Formal, custom instruction, refine) and per model. The totals are kept in memory since the backend started. Every AI call also writes an `llm.completed` log line with the same numbers. Free models report $0.
+
+Checks: `make test` (backend: 55 pytest tests with the AI mocked; frontend: 23 Vitest tests for the diff logic and the CodeMirror suggestion state), `make lint`, `make build`.
 
 ## How to use it
 
@@ -67,7 +69,7 @@ history + document in localStorage
 - **Backend** (`backend/src`): a thin proxy, so the API key never reaches the browser. `use_cases/suggestions/create_suggestion/prompt.py` holds the prompt and parses the model's `<replacement>…</replacement><reason>…</reason>` answer. `llm/llm_client.py` is about 120 lines of httpx for any OpenAI-compatible API. Its logs record model, latency and tokens, never document text.
 - **Frontend** (`frontend/src/components/Editor`): `codemirror/suggestionField.ts` keeps the open suggestion in CodeMirror state. Its range follows edits elsewhere and is locked while you review, and the diff is drawn with decorations. `diff/diffSegments.ts` turns the jsdiff output into reviewable changes.
 - The full list of decisions, with a reason for each, is in [`docs/PLAN.md`](docs/PLAN.md).
-- [`docs/INTERVIEW_QA.md`](docs/INTERVIEW_QA.md) answers 32 questions about how it works and why (from a review by a fresh pair of eyes).
+- [`docs/INTERVIEW_QA.md`](docs/INTERVIEW_QA.md) answers 33 questions about how it works and why (from a review by a fresh pair of eyes).
 
 ### Trade-offs: what I left out on purpose
 

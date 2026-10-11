@@ -3,9 +3,11 @@ import pytest
 from ..config import get_configuration_variables
 from ..llm import (
     ChatMessage,
+    Completion,
     LlmNotConfiguredError,
     LlmRateLimitedError,
     LlmUnavailableError,
+    TokenUsage,
     get_llm_client,
 )
 from ..main import app
@@ -16,14 +18,15 @@ class FakeLlmClient:
 
     def __init__(self):
         self.answer = "<replacement>\nA tighter sentence.\n</replacement>\n<reason>Cut filler.</reason>"
+        self.usage = TokenUsage(prompt_tokens=200, completion_tokens=40, cost_usd=0.0003)
         self.error: Exception | None = None
         self.calls: list[tuple[str, list[ChatMessage]]] = []
 
-    async def complete(self, model: str, messages: list[ChatMessage]) -> str:
+    async def complete(self, model: str, messages: list[ChatMessage]) -> Completion:
         self.calls.append((model, messages))
         if self.error:
             raise self.error
-        return self.answer
+        return Completion(content=self.answer, usage=self.usage)
 
 
 @pytest.fixture
@@ -167,3 +170,44 @@ async def test_unexpected_error_returns_opaque_500_with_request_id_and_headers(h
     assert response.json() == {"detail": "Internal server error"}
     assert response.headers["X-Request-ID"] == "req-1"
     assert response.headers["X-Content-Type-Options"] == "nosniff"
+
+
+async def test_usage_is_recorded_per_feature_and_model(http_client, fake_llm, usage_tracker):
+    await http_client.post("/suggestions", json=_body(feature="shorter"))
+    await http_client.post("/suggestions", json=_body(feature="shorter", model="model-b"))
+    await http_client.post("/suggestions", json=_body(feature="refine"))
+
+    snapshot = usage_tracker.snapshot()
+    assert snapshot.total.requests == 3
+    assert snapshot.by_feature["shorter"].prompt_tokens == 400
+    assert snapshot.by_feature["refine"].requests == 1
+    assert snapshot.by_model["model-b"].requests == 1
+
+
+async def test_feature_defaults_to_custom(http_client, fake_llm, usage_tracker):
+    await http_client.post("/suggestions", json=_body())
+
+    assert list(usage_tracker.snapshot().by_feature) == ["custom"]
+
+
+async def test_unknown_feature_is_rejected(http_client, fake_llm):
+    response = await http_client.post("/suggestions", json=_body(feature="translate"))
+
+    assert response.status_code == 422
+
+
+async def test_malformed_answer_still_counts_its_tokens(http_client, fake_llm, usage_tracker):
+    fake_llm.answer = "No tags here."
+
+    response = await http_client.post("/suggestions", json=_body())
+
+    assert response.status_code == 502
+    assert usage_tracker.snapshot().total.requests == 1
+
+
+async def test_failed_call_is_not_counted(http_client, fake_llm, usage_tracker):
+    fake_llm.error = LlmRateLimitedError("slow down")
+
+    await http_client.post("/suggestions", json=_body())
+
+    assert usage_tracker.snapshot().total.requests == 0

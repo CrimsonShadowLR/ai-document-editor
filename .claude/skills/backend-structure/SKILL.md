@@ -16,7 +16,8 @@ backend/
     ├── bootstrap.py        # FastAPI app, CORS, request-id logging (+ opaque 500), 422 handler, security headers, /healthcheck
     ├── config.py           # ConfigurationVariables (pydantic-settings, reads the repo-root .env)
     ├── observability.py    # structlog + stdlib logging wiring
-    ├── llm/                # LlmClient (httpx, OpenAI-compatible) + provider errors; get_llm_client dependency
+    ├── llm/                # LlmClient (httpx, OpenAI-compatible) → Completion(content, TokenUsage) + provider errors; get_llm_client dependency
+    ├── usage/              # UsageTracker: in-memory tokens/cost per feature and model; get_usage_tracker dependency
     ├── use_cases/
     │   ├── shared/                 # BaseHandler, BaseDataTransfer
     │   └── <domain>/
@@ -54,7 +55,7 @@ async def create_suggestion(request: CreateSuggestionRequest, handler: CreateSug
 ```
 Then `app.include_router(...)` in `main.py`.
 
-**When to add a use case**: whenever the endpoint has logic, dependencies or domain errors. An endpoint that only returns config (`GET /models`) can skip the handler and keep its small response DTO in the router.
+**When to add a use case**: whenever the endpoint has logic, dependencies or domain errors. An endpoint that only returns config or in-memory totals (`GET /models`, `GET /usage`) can skip the handler and keep its small response DTO in the router.
 
 **Tests**: `async def test_x(http_client)` hits real endpoints. Override `get_llm_client` with a fake (see `test_suggestions_router.py`), or pass an `httpx.MockTransport` to `LlmClient`. Tests must never call the real API. Run with `make test`.
 

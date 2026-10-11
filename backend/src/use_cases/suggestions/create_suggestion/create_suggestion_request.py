@@ -1,6 +1,12 @@
+from typing import Literal
+
 from pydantic import Field, field_validator
 
 from ...shared import BaseDataTransfer
+
+
+# Which UI action started the call; only used to break down usage and cost.
+SuggestionFeature = Literal["improve", "shorter", "formal", "custom", "refine"]
 
 
 def _strip_non_blank(instruction: str) -> str:
@@ -31,6 +37,7 @@ class CreateSuggestionRequest(BaseDataTransfer):
     model: str | None = None
     # Earlier refine rounds, oldest first; `instruction` is the newest request.
     turns: list[SuggestionTurn] = Field(default_factory=list, max_length=10)
+    feature: SuggestionFeature = "custom"
 
     @field_validator("instruction")
     @classmethod

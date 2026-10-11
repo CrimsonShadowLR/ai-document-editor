@@ -17,9 +17,10 @@ Questions a new developer asked after studying the project, with answers checked
 |---|---|---|
 | `GET /healthcheck` | → `{status: "healthy"}` | — |
 | `GET /models` | → `{models: string[], default: string \| null}` from `LLM_MODELS` | — |
-| `POST /suggestions` | `{before, selection, after, instruction, model?, turns[]}` → `{replacement, reason, model}` | 422 validation, 400 unknown model, 503 no key / no models, 429 rate limited, 502 provider failed or answer without tags, 500 opaque |
+| `POST /suggestions` | `{before, selection, after, instruction, model?, turns[], feature}` → `{replacement, reason, model}` | 422 validation, 400 unknown model, 503 no key / no models, 429 rate limited, 502 provider failed or answer without tags, 500 opaque |
+| `GET /usage` | → requests, prompt/completion/reasoning tokens and cost (USD) in total, per feature and per model | — |
 
-Every response has an `X-Request-ID` header. Limits: `selection` ≤ 20,000 characters, `before` / `after` ≤ 100,000 each, `instruction` ≤ 1,000, at most 10 `turns`. The frontend applies the same limits before sending (`Editor/limits.ts`).
+`feature` (`improve`, `shorter`, `formal`, `custom`, `refine`) only labels usage. Every response has an `X-Request-ID` header. Limits: `selection` ≤ 20,000 characters, `before` / `after` ≤ 100,000 each, `instruction` ≤ 1,000, at most 10 `turns`. The frontend applies the same limits before sending (`Editor/limits.ts`).
 
 ## Architecture
 
@@ -125,7 +126,7 @@ The skill says to use tokens, not hex. The CodeMirror tints now derive from `var
 Vitest (`npm test`, 23 tests). The diff logic: exact rebuild of both texts, merge rules, partial accepts. The CodeMirror suggestion state: range mapping, edge typing, the lock, closing on undo, decisions. These run on a bare `EditorState`, with no browser. The full UI flow was tested by hand with Playwright.
 
 **30. What is tested on the backend?**
-pytest (44 tests), with the AI provider always mocked. It covers the endpoints and their error codes, multi-turn messages, the 10-turn cap, blank instructions, tag parsing (last block, stray tags, CRLF), provider error messages, `X-Request-ID`, security headers and the 500 path.
+pytest (55 tests), with the AI provider always mocked. It covers the endpoints and their error codes, multi-turn messages, the 10-turn cap, blank instructions, tag parsing (last block, stray tags, CRLF), provider error messages, `X-Request-ID`, security headers and the 500 path.
 
 ## Trade-offs
 
@@ -134,3 +135,8 @@ Free models don't reliably support JSON mode or tools, and escaping Markdown ins
 
 **32. Why `diffWordsWithSpace`, not `diffWords` or a character diff?**
 It keeps whitespace and line breaks as tokens, so the unchanged and removed parts rebuild the original exactly. That matters because the original stays in the document during review. `diffWords` ignores whitespace changes, and a character diff is too noisy for rewrites.
+
+## Token and cost tracking
+
+**33. How do you know how many tokens and how much money each feature uses?**
+The frontend sends which action started a call (`feature`: improve, shorter, formal, custom, refine). `LlmClient` reads `usage` from the response: prompt, completion and reasoning tokens, and OpenRouter's `cost` in USD. The handler records it in an in-memory `UsageTracker` before parsing the answer, because the tokens are spent even if the answer is malformed. `GET /usage` shows totals and averages per feature and per model, and every `llm.completed` log line carries the same numbers plus the feature. Failed calls aren't counted. Totals reset when the server restarts; OpenRouter's Activity page keeps the full history.
