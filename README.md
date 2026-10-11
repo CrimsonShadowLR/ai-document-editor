@@ -28,7 +28,7 @@ Open http://localhost:5173. An example document is loaded on the first visit, so
 
 `.env.example` lists two free OpenRouter models (`:free`, no credits needed, about 50 requests a day). Any OpenAI-compatible provider works: set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODELS`.
 
-Checks: `make test` (backend, 28 tests, the AI is mocked), `make lint`, `make build`.
+Checks: `make test` (backend, 44 tests, the AI is mocked), `make lint`, `make build`.
 
 ## How to use it
 
@@ -41,7 +41,7 @@ Checks: `make test` (backend, 28 tests, the AI is mocked), `make lint`, `make bu
 |---|---|
 | Ctrl/⌘ + K | Focus the instruction box for the selected text |
 | Ctrl/⌘ + Enter | Accept all changes |
-| Esc | Reject the suggestion (or cancel it while it loads) |
+| Esc | Reject the suggestion, cancel it while it loads (a refine goes back to the previous version), or hide the selection popup |
 | Ctrl/⌘ + Z | Undo an applied AI edit or a restore (one step each) |
 
 ## What I built
@@ -52,7 +52,7 @@ My reading of "collaborative" is that **the user stays the author**. The AI work
 - **Inline tracked changes.** The diff sits where you are reading, instead of a side-by-side view or a chat panel. It is a word-level diff, and changes split by one or two unchanged words are merged, so a full rewrite reads as one change and a typo fix stays precise.
 - **Decide per change.** You can take the AI's better verb and keep your own sentence. Partial results are written to the document in one transaction, so one Ctrl+Z undoes the AI edit.
 - **Multi-turn refine.** Earlier rounds are sent as conversation turns, so "now more formal" builds on the last version. The card shows the trail (Improve → Shorter → Formal).
-- **Version history.** Every applied edit is saved with its label, model and diff. Restoring is also recorded, so you can't lose a version.
+- **Version history.** Every applied edit is saved with its label, model and diff. Restoring is also recorded, and your own edits are saved first if no version holds them yet, so a restore never loses work. The newest 30 versions are kept.
 - **The model is your choice.** A picker shows the models from config. When a free model is busy, the error says so and suggests another one.
 
 ### Architecture
@@ -64,7 +64,7 @@ inline diff (jsdiff) ← {replacement, reason} ◀──  LlmClient (httpx)     
 history + document in localStorage
 ```
 
-- **Backend** (`backend/src`): a thin proxy, so the API key never reaches the browser. `use_cases/suggestions/create_suggestion/prompt.py` holds the prompt and parses the model's `<replacement>…</replacement><reason>…</reason>` answer. `llm/llm_client.py` is about 115 lines of httpx for any OpenAI-compatible API. Its logs record model, latency and tokens, never document text.
+- **Backend** (`backend/src`): a thin proxy, so the API key never reaches the browser. `use_cases/suggestions/create_suggestion/prompt.py` holds the prompt and parses the model's `<replacement>…</replacement><reason>…</reason>` answer. `llm/llm_client.py` is about 120 lines of httpx for any OpenAI-compatible API. Its logs record model, latency and tokens, never document text.
 - **Frontend** (`frontend/src/components/Editor`): `codemirror/suggestionField.ts` keeps the open suggestion in CodeMirror state. Its range follows edits elsewhere and is locked while you review, and the diff is drawn with decorations. `diff/diffSegments.ts` turns the jsdiff output into reviewable changes.
 - The full list of decisions, with a reason for each, is in [`docs/PLAN.md`](docs/PLAN.md).
 

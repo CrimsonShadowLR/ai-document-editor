@@ -16,12 +16,13 @@ configure_logging(_config)
 
 logger = structlog.get_logger("app.request")
 
-app = FastAPI(title="API")
+app = FastAPI(title="AI Document Editor API")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_config.cors_origins_list,
-    allow_credentials=True,
+    # No cookies or auth headers: the browser never sends credentials.
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -34,6 +35,10 @@ async def log_requests(request: Request, call_next) -> Response:
     Honors an inbound ``X-Request-ID`` (else generates one), binds it into
     structlog's contextvars so every line logged during the request carries it,
     and echoes it back in the response header.
+
+    Domain errors are mapped to 4xx/5xx in the routers; any other exception is a
+    bug. It is logged once here with a stack trace and turned into an opaque
+    500, so that response still gets the request id and the security headers.
     """
 
     structlog.contextvars.clear_contextvars()
@@ -47,26 +52,17 @@ async def log_requests(request: Request, call_next) -> Response:
     start = time.perf_counter()
     try:
         response = await call_next(request)
-    except Exception:
+    except Exception as error:
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
-        logger.exception("request.failed", duration_ms=duration_ms)
-        raise
-
-    duration_ms = round((time.perf_counter() - start) * 1000, 2)
-    logger.info("request.handled", status_code=response.status_code, duration_ms=duration_ms)
+        logger.exception(
+            "request.failed", error_type=type(error).__name__, duration_ms=duration_ms
+        )
+        response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    else:
+        duration_ms = round((time.perf_counter() - start) * 1000, 2)
+        logger.info("request.handled", status_code=response.status_code, duration_ms=duration_ms)
     response.headers["X-Request-ID"] = request_id
     return response
-
-
-@app.exception_handler(Exception)
-async def handle_unexpected_error(request: Request, error: Exception) -> Response:
-    """Log any unhandled exception with a stack trace and return an opaque 500.
-
-    Domain errors are mapped to 4xx in the routers; anything reaching here is a bug.
-    """
-
-    logger.exception("unhandled_exception", error_type=type(error).__name__)
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.exception_handler(RequestValidationError)

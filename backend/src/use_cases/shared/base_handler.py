@@ -18,9 +18,9 @@ def _wrap_execute_with_logging(cls: type) -> None:
     """Wrap a subclass's own ``execute`` with start/completed/failed log lines.
 
     Failures log at WARNING with the error type only: handlers routinely raise
-    expected domain errors that routers map to 4xx.
-    Genuinely unhandled exceptions still get a stack trace from the global
-    handler in ``bootstrap.py``.
+    expected domain errors that routers map to 4xx/5xx.
+    Genuinely unhandled exceptions still get a stack trace from the request
+    middleware in ``bootstrap.py``.
     """
 
     method = cls.__dict__.get("execute")

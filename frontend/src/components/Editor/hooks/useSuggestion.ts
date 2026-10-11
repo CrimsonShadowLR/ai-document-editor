@@ -29,12 +29,16 @@ interface SuggestionRequest {
   turns: SuggestionTurn[];
   /** Labels of the earlier rounds, for the "Improve → Shorter" trail. */
   previousLabels: string[];
+  /** For a refine: the suggestion it builds on, shown again if the refine is cancelled. */
+  previous: ReadyState | null;
 }
+
+type ReadyState = { status: "ready"; request: SuggestionRequest; result: SuggestionResponse };
 
 export type SuggestionState =
   | { status: "idle" }
   | { status: "loading"; request: SuggestionRequest }
-  | { status: "ready"; request: SuggestionRequest; result: SuggestionResponse }
+  | ReadyState
   | { status: "error"; request: SuggestionRequest; error: string };
 
 /**
@@ -80,21 +84,38 @@ export function useSuggestion(
   const { mutateAsync } = useCreateSuggestion();
   // Bumped on every request and on close, so a late answer can't reopen a closed suggestion.
   const latestRequestId = useRef(0);
+  // The request in flight, aborted when it's superseded or cancelled.
+  const inFlight = useRef<AbortController | null>(null);
+
+  /** Ignore and abort the request in flight, if any. */
+  const dropRequest = useCallback(() => {
+    latestRequestId.current++;
+    inFlight.current?.abort();
+    inFlight.current = null;
+  }, []);
+
+  useEffect(() => dropRequest, [dropRequest]);
 
   const run = useCallback(
     async (request: SuggestionRequest) => {
       if (!view) return;
-      const requestId = ++latestRequestId.current;
+      dropRequest();
+      const requestId = latestRequestId.current;
+      const controller = new AbortController();
+      inFlight.current = controller;
       setState({ status: "loading", request });
       view.dispatch({ effects: setSuggestionPhase.of("loading") });
       try {
         const result = await mutateAsync({
-          before: request.before,
-          selection: request.original,
-          after: request.after,
-          instruction: request.action.instruction,
-          model,
-          turns: request.turns,
+          body: {
+            before: request.before,
+            selection: request.original,
+            after: request.after,
+            instruction: request.action.instruction,
+            model,
+            turns: request.turns,
+          },
+          signal: controller.signal,
         });
         if (requestId !== latestRequestId.current) return;
         view.dispatch({ effects: showSuggestionDiff.of(diffSegments(request.original, result.replacement)) });
@@ -105,7 +126,7 @@ export function useSuggestion(
         setState({ status: "error", request, error: errorMessage(error, "The AI request failed.") });
       }
     },
-    [view, model, mutateAsync],
+    [view, model, mutateAsync, dropRequest],
   );
 
   /** Ask the AI about the current selection. */
@@ -125,6 +146,7 @@ export function useSuggestion(
         after: doc.sliceString(to),
         turns: [],
         previousLabels: [],
+        previous: null,
       });
     },
     [view, run],
@@ -148,6 +170,7 @@ export function useSuggestion(
         action: { label: instruction, instruction },
         turns: [...previous.turns, { instruction: previous.action.instruction, replacement: result.replacement }],
         previousLabels: [...previous.previousLabels, previous.action.label],
+        previous: state,
       });
     },
     [state, run],
@@ -158,6 +181,21 @@ export function useSuggestion(
     view?.dispatch({ effects: closeSuggestion.of(null) });
     view?.focus();
   }, [view]);
+
+  /**
+   * Cancel a loading request or dismiss its error. A refine goes back to the
+   * suggestion it was refining; a first request closes.
+   */
+  const cancel = useCallback(() => {
+    const previous = state.status === "loading" || state.status === "error" ? state.request.previous : null;
+    if (!view || !previous) return close();
+    dropRequest();
+    view.dispatch({
+      effects: showSuggestionDiff.of(diffSegments(previous.request.original, previous.result.replacement)),
+    });
+    setState(previous);
+    view.focus();
+  }, [state, view, close, dropRequest]);
 
   const acceptAll = useCallback(() => {
     if (view) resolveChanges(view, "accepted");
@@ -191,10 +229,10 @@ export function useSuggestion(
     }
 
     if (!next) {
-      latestRequestId.current++;
+      dropRequest();
       setState({ status: "idle" });
     }
-  }, []);
+  }, [dropRequest]);
 
-  return { state, range, request, retry, refine, close, acceptAll, rejectAll, syncFromEditor };
+  return { state, range, request, retry, refine, close, cancel, acceptAll, rejectAll, syncFromEditor };
 }

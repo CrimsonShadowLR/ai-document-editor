@@ -26,17 +26,8 @@ export async function get<T>(url: string, params?: QueryParams): Promise<T> {
   return data;
 }
 
-export async function post<T, B = unknown>(url: string, body: B): Promise<T> {
-  const { data } = await client.post<T>(url, body);
-  return data;
-}
-
-export async function patch<T, B = unknown>(url: string, body: B): Promise<T> {
-  const { data } = await client.patch<T>(url, body);
-  return data;
-}
-
-export async function del<T = void>(url: string): Promise<T> {
-  const { data } = await client.delete<T>(url);
+/** `signal` lets the caller abort the request (e.g. the user cancels). */
+export async function post<T, B = unknown>(url: string, body: B, signal?: AbortSignal): Promise<T> {
+  const { data } = await client.post<T>(url, body, { signal });
   return data;
 }

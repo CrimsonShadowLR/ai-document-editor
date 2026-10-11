@@ -22,8 +22,10 @@ the rewritten passage
 </replacement>
 <reason>one short sentence on what you changed and why</reason>"""
 
-_REPLACEMENT_PATTERN = re.compile(r"<replacement>(.*?)</replacement>", re.DOTALL)
-_REASON_PATTERN = re.compile(r"<reason>(.*?)</reason>", re.DOTALL)
+# A block may not contain its own opening tag, so a stray "<replacement>" in
+# the model's drafting can't swallow the text up to a later, complete block.
+_REPLACEMENT_PATTERN = re.compile(r"<replacement>((?:(?!<replacement>).)*?)</replacement>", re.DOTALL)
+_REASON_PATTERN = re.compile(r"<reason>((?:(?!<reason>).)*?)</reason>", re.DOTALL)
 
 
 def build_messages(request: CreateSuggestionRequest) -> list[ChatMessage]:
@@ -55,18 +57,24 @@ def build_messages(request: CreateSuggestionRequest) -> list[ChatMessage]:
 def _strip_one_newline(text: str) -> str:
     """Drop the single newline the format puts after/before the tags, keep the rest."""
 
-    text = text.removeprefix("\r\n").removeprefix("\n")
-    return text.removesuffix("\r\n").removesuffix("\n")
+    return text.removeprefix("\n").removesuffix("\n")
 
 
 def parse_completion(text: str) -> tuple[str, str | None]:
-    """Extract (replacement, reason) from the tagged model answer."""
+    """Extract (replacement, reason) from the tagged model answer.
 
-    replacement_match = _REPLACEMENT_PATTERN.search(text)
-    if replacement_match is None:
+    Takes the last block of each: a reasoning model may draft the format
+    (e.g. inside <think>) before it gives its final answer.
+    """
+
+    # The editor stores every line break as "\n"; a "\r\n" would throw off the
+    # positions it computes from the replacement's length.
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    replacements = _REPLACEMENT_PATTERN.findall(text)
+    if not replacements:
         raise MalformedSuggestionError(
             "The model did not answer in the expected format. Try again or pick another model."
         )
-    reason_match = _REASON_PATTERN.search(text)
-    reason = reason_match.group(1).strip() if reason_match else None
-    return _strip_one_newline(replacement_match.group(1)), reason or None
+    reasons = _REASON_PATTERN.findall(text)
+    reason = reasons[-1].strip() if reasons else None
+    return _strip_one_newline(replacements[-1]), reason or None

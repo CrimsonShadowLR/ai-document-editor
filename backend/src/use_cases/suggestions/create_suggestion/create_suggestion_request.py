@@ -3,11 +3,22 @@ from pydantic import Field, field_validator
 from ...shared import BaseDataTransfer
 
 
+def _strip_non_blank(instruction: str) -> str:
+    if not instruction.strip():
+        raise ValueError("Instruction must not be blank")
+    return instruction.strip()
+
+
 class SuggestionTurn(BaseDataTransfer):
     """One earlier round of the same suggestion: what was asked, what came back."""
 
     instruction: str = Field(min_length=1, max_length=1_000)
     replacement: str = Field(max_length=20_000)
+
+    @field_validator("instruction")
+    @classmethod
+    def _instruction_not_blank(cls, value: str) -> str:
+        return _strip_non_blank(value)
 
 
 class CreateSuggestionRequest(BaseDataTransfer):
@@ -24,6 +35,4 @@ class CreateSuggestionRequest(BaseDataTransfer):
     @field_validator("instruction")
     @classmethod
     def _instruction_not_blank(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("Instruction must not be blank")
-        return value.strip()
+        return _strip_non_blank(value)

@@ -56,6 +56,10 @@ export function Editor() {
   const selection = anchors.selection;
   const selectionKey = selection ? `${selection.from}:${selection.to}` : null;
   const showPopup = selection && suggestion.state.status === "idle" && selectionKey !== dismissedSelection;
+  const dismissPopup = () => {
+    setDismissedSelection(selectionKey);
+    view?.focus();
+  };
   const popupInputRef = useRef<HTMLInputElement>(null);
   // Where the popup was when an action was picked. The card shows there right
   // away instead of waiting for CodeMirror's next measure (rAF, throttled in
@@ -67,14 +71,20 @@ export function Editor() {
     status: suggestion.state.status,
     popupVisible: Boolean(showPopup),
     focusPopupInput: () => popupInputRef.current?.focus(),
+    dismissPopup,
     acceptAll: suggestion.acceptAll,
     rejectAll: suggestion.rejectAll,
-    close: suggestion.close,
+    cancel: suggestion.cancel,
   });
 
   /** Replace the whole document with an earlier version, as one undoable step. */
   const restore = (entry: HistoryEntry) => {
     if (!view) return;
+    // Edits made since the last recorded version would otherwise be lost from History.
+    const current = view.state.doc.toString();
+    if (!history.entries.some((saved) => saved.document === current)) {
+      record({ kind: "edits", label: "Your edits before restoring", document: current });
+    }
     view.dispatch({
       changes: { from: 0, to: view.state.doc.length, insert: entry.document },
       userEvent: "input.restore",
@@ -112,10 +122,7 @@ export function Editor() {
                 setRequestAnchor(selection);
                 suggestion.request(action);
               }}
-              onDismiss={() => {
-                setDismissedSelection(selectionKey);
-                view?.focus();
-              }}
+              onDismiss={dismissPopup}
             />
           )}
           {suggestion.state.status !== "idle" && cardAnchor && (
@@ -126,6 +133,7 @@ export function Editor() {
               onAcceptAll={suggestion.acceptAll}
               onRejectAll={suggestion.rejectAll}
               onClose={suggestion.close}
+              onCancel={suggestion.cancel}
               onRetry={suggestion.retry}
               onRefine={suggestion.refine}
             />

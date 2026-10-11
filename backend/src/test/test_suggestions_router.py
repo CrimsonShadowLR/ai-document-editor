@@ -131,3 +131,39 @@ async def test_answer_without_tags_returns_502(http_client, fake_llm):
     response = await http_client.post("/suggestions", json=_body())
 
     assert response.status_code == 502
+
+
+async def test_more_than_ten_refine_turns_is_rejected(http_client, fake_llm):
+    turns = [{"instruction": f"Round {n}", "replacement": "x"} for n in range(11)]
+
+    response = await http_client.post("/suggestions", json=_body(turns=turns))
+
+    assert response.status_code == 422
+    assert fake_llm.calls == []
+
+
+async def test_blank_turn_instruction_is_rejected(http_client, fake_llm):
+    response = await http_client.post(
+        "/suggestions", json=_body(turns=[{"instruction": "  ", "replacement": "x"}])
+    )
+
+    assert response.status_code == 422
+
+
+async def test_turn_instruction_is_stripped(http_client, fake_llm):
+    await http_client.post(
+        "/suggestions", json=_body(turns=[{"instruction": " Shorter \n", "replacement": "x"}])
+    )
+
+    assert fake_llm.calls[0][1][1]["content"].endswith("Instruction: Shorter")
+
+
+async def test_unexpected_error_returns_opaque_500_with_request_id_and_headers(http_client, fake_llm):
+    fake_llm.error = RuntimeError("bug with secret details")
+
+    response = await http_client.post("/suggestions", json=_body(), headers={"X-Request-ID": "req-1"})
+
+    assert response.status_code == 500
+    assert response.json() == {"detail": "Internal server error"}
+    assert response.headers["X-Request-ID"] == "req-1"
+    assert response.headers["X-Content-Type-Options"] == "nosniff"

@@ -1,6 +1,6 @@
 """Logging wiring.
 
-Routes structlog *and* stdlib ``logging`` (uvicorn, SQLAlchemy, libraries)
+Routes structlog *and* stdlib ``logging`` (uvicorn, httpx, libraries)
 through one renderer: JSON in deployed environments, a colorized console
 locally. The per-request ``request_id`` bound in ``bootstrap`` is merged into
 every line via ``merge_contextvars``.

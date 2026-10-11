@@ -13,8 +13,8 @@ backend/
 ├── pyproject.toml / uv.lock
 └── src/
     ├── main.py             # imports `app` from bootstrap, includes routers
-    ├── bootstrap.py        # FastAPI app, CORS, request-id logging, error handlers, /healthcheck
-    ├── config.py           # ConfigurationVariables (pydantic-settings, reads ../.env)
+    ├── bootstrap.py        # FastAPI app, CORS, request-id logging (+ opaque 500), 422 handler, security headers, /healthcheck
+    ├── config.py           # ConfigurationVariables (pydantic-settings, reads the repo-root .env)
     ├── observability.py    # structlog + stdlib logging wiring
     ├── llm/                # LlmClient (httpx, OpenAI-compatible) + provider errors; get_llm_client dependency
     ├── use_cases/
@@ -22,7 +22,9 @@ backend/
     │   └── <domain>/
     │       ├── __init__.py         # re-exports handlers, requests, responses, errors
     │       ├── errors.py           # domain exceptions
-    │       └── <action>/           # <action>_handler.py, <action>_request.py, __init__.py
+    │       ├── <x>_response.py     # response DTOs (e.g. suggestion_response.py)
+    │       └── <action>/           # <action>_handler.py, <action>_request.py, __init__.py,
+    │                               # plus private helpers (e.g. prompt.py: prompt + answer parsing)
     ├── routers/<domain>_router.py
     └── test/                       # conftest.py (http_client fixture)
 ```
@@ -51,6 +53,8 @@ async def create_suggestion(request: CreateSuggestionRequest, handler: CreateSug
         raise HTTPException(status_code=502, detail=str(error)) from error
 ```
 Then `app.include_router(...)` in `main.py`.
+
+**When to add a use case**: whenever the endpoint has logic, dependencies or domain errors. An endpoint that only returns config (`GET /models`) can skip the handler and keep its small response DTO in the router.
 
 **Tests**: `async def test_x(http_client)` hits real endpoints. Override `get_llm_client` with a fake (see `test_suggestions_router.py`), or pass an `httpx.MockTransport` to `LlmClient`. Tests must never call the real API. Run with `make test`.
 

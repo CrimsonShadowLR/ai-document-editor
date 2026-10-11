@@ -39,7 +39,7 @@ Errors: no key or no models → 503 with a clear message; unknown model → 400;
 ## Steps (one commit each)
 
 1. **Backend AI endpoint**: config, `LlmClient` (httpx), `/models`, `/suggestions`, prompt, tag parsing. Tests mock the provider and never call a real API.
-2. **Editor**: CodeMirror with Markdown, an example document on first load, autosave to localStorage, model picker in the header.
+2. **Editor**: CodeMirror with Markdown, an example document on first load, autosave to localStorage, model picker in the toolbar above the editor.
 3. **Selection popup**: quick actions + custom instruction; "Rewriting…" state on the selection while loading.
 4. **Inline diff**: red strikethrough for deletions, green for insertions; accept/reject per change, Accept all / Reject all. The range is locked while the suggestion is open so positions can't drift.
 5. **Refine**: follow-up box on the suggestion card; the diff updates in place.

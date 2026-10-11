@@ -14,6 +14,8 @@ interface SuggestionCardProps {
   onAcceptAll: () => void;
   onRejectAll: () => void;
   onClose: () => void;
+  /** Cancel loading / dismiss an error: back to the refined suggestion, or close. */
+  onCancel: () => void;
   onRetry: () => void;
   onRefine: (instruction: string) => void;
 }
@@ -25,6 +27,7 @@ export function SuggestionCard({
   onAcceptAll,
   onRejectAll,
   onClose,
+  onCancel,
   onRetry,
   onRefine,
 }: SuggestionCardProps) {
@@ -43,7 +46,7 @@ export function SuggestionCard({
       {state.status === "loading" && (
         <div className="flex items-center justify-between gap-3">
           <span className="text-slate-600">Rewriting…</span>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onCancel}>
             Cancel
           </Button>
         </div>
@@ -53,7 +56,7 @@ export function SuggestionCard({
         <>
           <p className="mb-3 text-red-700">{state.error}</p>
           <div className="flex justify-end gap-2">
-            <Button variant="secondary" onClick={onClose}>
+            <Button variant="secondary" onClick={onCancel}>
               Dismiss
             </Button>
             <Button onClick={onRetry}>Try again</Button>

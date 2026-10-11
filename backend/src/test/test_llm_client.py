@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from ..llm import LlmClient, LlmNotConfiguredError, LlmRateLimitedError, LlmUnavailableError
+from ..llm.llm_client import _provider_error
 
 MESSAGES = [{"role": "user", "content": "hi"}]
 
@@ -69,3 +70,24 @@ async def test_unusable_response_raises_unavailable(body):
 
     with pytest.raises(LlmUnavailableError):
         await _client(handler).complete("model-a", MESSAGES)
+
+
+async def test_upstream_5xx_suggests_another_model():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503, json={"error": {"message": "No endpoints available"}})
+
+    with pytest.raises(LlmUnavailableError, match="pick another model"):
+        await _client(handler).complete("model-a", MESSAGES)
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        (httpx.Response(429, json={"error": {"message": "Rate limited upstream"}}), "Rate limited upstream"),
+        (httpx.Response(502, text="Bad gateway"), "Bad gateway"),
+        (httpx.Response(500, text=""), None),
+        (httpx.Response(500, text="x" * 500), "x" * 300),
+    ],
+)
+def test_provider_error_extracts_a_short_message(response, expected):
+    assert _provider_error(response) == expected

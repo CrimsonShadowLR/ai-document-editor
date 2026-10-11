@@ -56,6 +56,14 @@ export const suggestionField = StateField.define<SuggestionRange | null>({
       }
     }
     if (!range || !transaction.docChanged) return range;
+    // The lock below stops typing, but undo/redo skip change filters. If one
+    // rewrites the reviewed text, the diff no longer matches it: drop it.
+    const { from, to } = range;
+    let rewritten = false;
+    transaction.changes.iterChangedRanges((fromA, toA) => {
+      if (fromA < to && toA > from) rewritten = true;
+    });
+    if (rewritten) return null;
     // Text typed right at either edge stays outside the range.
     return {
       ...range,
@@ -191,7 +199,8 @@ const suggestionDecorations = EditorView.decorations.compute([suggestionField], 
 
 /** While a suggestion is open its text can't be edited, so the AI's answer
  * always applies to exactly the text it was asked about. Our own writes
- * bypass this with `filter: false`. */
+ * bypass this with `filter: false`, and so do undo/redo (the field then closes
+ * the suggestion if they touch its text). */
 const lockSuggestionRange = EditorState.changeFilter.of((transaction) => {
   const range = transaction.startState.field(suggestionField);
   return range ? [range.from, range.to] : true;

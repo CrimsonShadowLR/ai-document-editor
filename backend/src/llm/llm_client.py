@@ -73,6 +73,13 @@ class LlmClient:
                 )
             if response.status_code in (401, 403):
                 raise LlmUnavailableError("The AI provider rejected the API key.")
+            if response.status_code >= 500:
+                # OpenRouter answers 502/503 when the model's upstream is down
+                # or busy; another model usually works.
+                raise LlmUnavailableError(
+                    f"The AI provider failed (HTTP {response.status_code}). "
+                    "Try again or pick another model."
+                )
             raise LlmUnavailableError(f"The AI provider failed (HTTP {response.status_code}).")
 
         try:
