@@ -25,3 +25,6 @@ Thumbs.db
 
 # Assessment brief (company document, kept out of the repo)
 Engineering Assessment 2026.pdf
+
+# Playwright MCP screenshots and snapshots
+.playwright-mcp/
