@@ -67,6 +67,7 @@ history + document in localStorage
 - **Backend** (`backend/src`): a thin proxy, so the API key never reaches the browser. `use_cases/suggestions/create_suggestion/prompt.py` holds the prompt and parses the model's `<replacement>…</replacement><reason>…</reason>` answer. `llm/llm_client.py` is about 120 lines of httpx for any OpenAI-compatible API. Its logs record model, latency and tokens, never document text.
 - **Frontend** (`frontend/src/components/Editor`): `codemirror/suggestionField.ts` keeps the open suggestion in CodeMirror state. Its range follows edits elsewhere and is locked while you review, and the diff is drawn with decorations. `diff/diffSegments.ts` turns the jsdiff output into reviewable changes.
 - The full list of decisions, with a reason for each, is in [`docs/PLAN.md`](docs/PLAN.md).
+- [`docs/INTERVIEW_QA.md`](docs/INTERVIEW_QA.md) answers 32 questions about how it works and why (from a review by a fresh pair of eyes).
 
 ### Trade-offs: what I left out on purpose
 
