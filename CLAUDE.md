@@ -12,10 +12,21 @@ Chiri engineering assessment: a collaborative AI document editor for Markdown. T
 
 ## Decisions so far
 - No AWS, no Docker, no database. The PDF asks for no extra infrastructure.
-- Backend: FastAPI, used as a thin AI proxy. The OpenRouter key stays on the server, in `.env`.
+- Backend: FastAPI, used as a thin AI proxy. The API key stays on the server, in `.env`.
 - Storage: browser `localStorage` (documents and version history).
 - Run: plain `uv` + `npm` through the Makefile (`make install`, `make backend`, `make frontend`).
-- Still to decide: editor library, diff library, AI model.
+- Editor: CodeMirror 6 (raw Markdown text).
+- Diff: jsdiff (`diff` package), highlights drawn by us.
+- Model: the user picks it in the UI from a fixed list of 2–3 model IDs in backend config (`LLM_MODELS`).
+- Provider: generic OpenAI-compatible settings in `.env`: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODELS`. Switching provider changes only `.env`. Develop and test with Groq's free tier. The $5 OpenRouter key from Chiri is the production key: never use it until everything is set up and the user says so.
+- Suggestions: inline tracked changes in the editor (red strikethrough / green insertions), accept or reject each one.
+- Trigger: select text, a small popup appears with quick actions (Improve, Shorter, Formal) and a custom instruction.
+- Refine: a follow-up box under the suggestion ('make it shorter'). The AI updates the same suggestion and keeps the earlier turns.
+- Accept/reject: per change, plus 'Accept all' / 'Reject all' for the suggestion.
+- History: a simple timeline. Each accepted AI edit saves a snapshot to localStorage; the user can view and restore it.
+- No streaming: a loading state on the selection, then the full diff. Streaming goes under 'with more time'.
+- LLM client: plain `httpx` POST to an OpenAI-compatible `/chat/completions`. No LangChain, no LangSmith (one API call, no agents/RAG; structlog covers logging).
+- The assessment PDF stays out of git (`.gitignore`).
 
 ## Architecture
 - Backend: see the `backend-structure` skill (router → handler, no DB).

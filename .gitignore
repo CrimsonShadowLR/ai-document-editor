@@ -22,3 +22,6 @@ dist/
 .DS_Store
 Thumbs.db
 .idea/
+
+# Assessment brief (company document, kept out of the repo)
+Engineering Assessment 2026.pdf
