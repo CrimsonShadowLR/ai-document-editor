@@ -12,6 +12,9 @@ interface HistoryPanelProps {
   restoreBlockedReason: string | null;
   onRestore: (entry: HistoryEntry) => void;
   onClear: () => void;
+  /** How many old versions the cap has removed. */
+  dropped: number;
+  maxEntries: number;
 }
 
 export function HistoryPanel({
@@ -20,6 +23,8 @@ export function HistoryPanel({
   restoreBlockedReason,
   onRestore,
   onClear,
+  dropped,
+  maxEntries,
 }: HistoryPanelProps) {
   const [openId, setOpenId] = useState<string | null>(null);
   const currentId = entries.find((entry) => entry.document === currentDocument)?.id;
@@ -85,6 +90,13 @@ export function HistoryPanel({
             );
           })}
         </ol>
+      )}
+
+      {dropped > 0 && (
+        <p className="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-400">
+          Only the newest {maxEntries} versions are kept. {dropped} older{" "}
+          {dropped === 1 ? "version was" : "versions were"} removed.
+        </p>
       )}
     </aside>
   );

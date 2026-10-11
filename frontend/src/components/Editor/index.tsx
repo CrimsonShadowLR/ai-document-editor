@@ -9,7 +9,7 @@ import { SelectionPopup } from "./components/SelectionPopup";
 import { SuggestionCard } from "./components/SuggestionCard";
 import { useDocument } from "./hooks/useDocument";
 import { useEditorAnchors, type Anchor } from "./hooks/useEditorAnchors";
-import { useHistory } from "./hooks/useHistory";
+import { MAX_HISTORY_ENTRIES, useHistory } from "./hooks/useHistory";
 import { useSelectedModel } from "./hooks/useSelectedModel";
 import { useSuggestion, type AppliedEdit } from "./hooks/useSuggestion";
 import { useSuggestionShortcuts } from "./hooks/useSuggestionShortcuts";
@@ -160,6 +160,8 @@ export function Editor() {
             }
             onRestore={restore}
             onClear={history.clear}
+            dropped={history.dropped}
+            maxEntries={MAX_HISTORY_ENTRIES}
           />
         )}
       </div>

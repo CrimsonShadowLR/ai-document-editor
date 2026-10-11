@@ -54,7 +54,7 @@ My reading of "collaborative" is that **the user stays the author**. The AI work
 - **Inline tracked changes.** The diff sits where you are reading, instead of a side-by-side view or a chat panel. It is a word-level diff, and changes split by one or two unchanged words are merged, so a full rewrite reads as one change and a typo fix stays precise.
 - **Decide per change.** You can take the AI's better verb and keep your own sentence. Partial results are written to the document in one transaction, so one Ctrl+Z undoes the AI edit.
 - **Multi-turn refine.** Earlier rounds are sent as conversation turns, so "now more formal" builds on the last version. The card shows the trail (Improve → Shorter → Formal).
-- **Version history.** Every applied edit is saved with its label, model and diff. Restoring is also recorded, and your own edits are saved first if no version holds them yet, so a restore never loses work. The newest 30 versions are kept.
+- **Version history.** Every applied edit is saved with its label, model and diff. Restoring is also recorded, and your own edits are saved first if no version holds them yet, so a restore never loses work. The newest 100 versions are kept, and the panel says how many older ones were removed.
 - **The model is your choice.** A picker shows the models from config. When a model is busy, the error says so and suggests another one.
 
 ### Architecture

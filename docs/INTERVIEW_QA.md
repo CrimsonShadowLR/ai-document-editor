@@ -101,7 +101,7 @@ That was a bug: CodeMirror stores `\r\n` as one character, but the cursor positi
 ## History and persistence
 
 **23. Can a restore lose my own edits?**
-No. Before restoring, edits that no history entry holds are saved as "Your edits before restoring". The timeline keeps the newest 30 entries, so very old versions do drop off.
+No. Before restoring, edits that no history entry holds are saved as "Your edits before restoring". The timeline keeps the newest 100 entries; when older ones drop off, the panel says how many were removed. (It used to be 30, which filled up quickly when going back and forth: every restore adds two entries.)
 
 **24. Does History react to Ctrl+Z?**
 No, a known limitation. Only the "current" badge follows, because it compares document text. What an undone AI edit should mean in the timeline is a product decision.
