@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, type FormEvent, type Ref } from "react";
 
 import type { Anchor } from "../hooks/useEditorAnchors";
 import { QUICK_ACTIONS, type QuickAction } from "../quickActions";
@@ -8,9 +8,11 @@ interface SelectionPopupProps {
   disabledReason: string | null;
   onAction: (action: QuickAction) => void;
   onDismiss: () => void;
+  /** Lets Ctrl/⌘+K focus the instruction box. */
+  inputRef?: Ref<HTMLInputElement>;
 }
 
-export function SelectionPopup({ anchor, disabledReason, onAction, onDismiss }: SelectionPopupProps) {
+export function SelectionPopup({ anchor, disabledReason, onAction, onDismiss, inputRef }: SelectionPopupProps) {
   const [custom, setCustom] = useState("");
 
   const submitCustom = (event: FormEvent) => {
@@ -48,8 +50,9 @@ export function SelectionPopup({ anchor, disabledReason, onAction, onDismiss }: 
           ))}
           <form onSubmit={submitCustom}>
             <input
+              ref={inputRef}
               className="w-56 rounded-md border border-slate-200 px-2 py-1 text-sm placeholder:text-slate-400 focus:border-brand focus:outline-none"
-              placeholder="Or tell the AI what to do…"
+              placeholder="Or tell the AI what to do… (Ctrl+K)"
               value={custom}
               onChange={(event) => setCustom(event.target.value)}
             />

@@ -7,10 +7,11 @@ import { ModelPicker } from "./components/ModelPicker";
 import { SelectionPopup } from "./components/SelectionPopup";
 import { SuggestionCard } from "./components/SuggestionCard";
 import { useDocument } from "./hooks/useDocument";
-import { useEditorAnchors } from "./hooks/useEditorAnchors";
+import { useEditorAnchors, type Anchor } from "./hooks/useEditorAnchors";
 import { useHistory } from "./hooks/useHistory";
 import { useSelectedModel } from "./hooks/useSelectedModel";
 import { useSuggestion, type AppliedEdit } from "./hooks/useSuggestion";
+import { useSuggestionShortcuts } from "./hooks/useSuggestionShortcuts";
 import type { HistoryEntry } from "./schema/history";
 import { formatTime } from "./formatTime";
 
@@ -55,6 +56,21 @@ export function Editor() {
   const selection = anchors.selection;
   const selectionKey = selection ? `${selection.from}:${selection.to}` : null;
   const showPopup = selection && suggestion.state.status === "idle" && selectionKey !== dismissedSelection;
+  const popupInputRef = useRef<HTMLInputElement>(null);
+  // Where the popup was when an action was picked. The card shows there right
+  // away instead of waiting for CodeMirror's next measure (rAF, throttled in
+  // background windows) to place it under the range.
+  const [requestAnchor, setRequestAnchor] = useState<Anchor | null>(null);
+  const cardAnchor = anchors.suggestion ?? requestAnchor;
+
+  useSuggestionShortcuts({
+    status: suggestion.state.status,
+    popupVisible: Boolean(showPopup),
+    focusPopupInput: () => popupInputRef.current?.focus(),
+    acceptAll: suggestion.acceptAll,
+    rejectAll: suggestion.rejectAll,
+    close: suggestion.close,
+  });
 
   /** Replace the whole document with an earlier version, as one undoable step. */
   const restore = (entry: HistoryEntry) => {
@@ -91,16 +107,20 @@ export function Editor() {
               key={selectionKey}
               anchor={selection}
               disabledReason={modelSelection.selected ? null : "No AI model available"}
-              onAction={suggestion.request}
+              inputRef={popupInputRef}
+              onAction={(action) => {
+                setRequestAnchor(selection);
+                suggestion.request(action);
+              }}
               onDismiss={() => {
                 setDismissedSelection(selectionKey);
                 view?.focus();
               }}
             />
           )}
-          {suggestion.state.status !== "idle" && anchors.suggestion && (
+          {suggestion.state.status !== "idle" && cardAnchor && (
             <SuggestionCard
-              anchor={anchors.suggestion}
+              anchor={cardAnchor}
               state={suggestion.state}
               range={suggestion.range}
               onAcceptAll={suggestion.acceptAll}

@@ -105,7 +105,7 @@ function ReadyContent({ reason, range, onAcceptAll, onRejectAll, onClose }: Read
       {reason && <p className="mb-2 text-slate-700">{reason}</p>}
       <p className="mb-3 text-xs text-slate-500">
         {pending} of {changes.length} {changes.length === 1 ? "change" : "changes"} to review. Use ✓ / ✕ in
-        the text, or decide all at once.
+        the text, or decide all at once (Ctrl+Enter / Esc).
       </p>
       <div className="flex justify-end gap-2">
         <Button variant="secondary" onClick={onRejectAll}>
