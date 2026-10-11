@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { EditorView, ViewUpdate } from "@codemirror/view";
 
 import { errorMessage } from "../../../shared/httpClient";
@@ -48,13 +48,34 @@ function trimRange(selected: string, from: number, to: number) {
   return leading === selected.length ? { from, to: from } : { from: from + leading, to: to - trailing };
 }
 
+/** An AI edit that was written into the document (fully or partly accepted). */
+export interface AppliedEdit {
+  label: string;
+  model: string;
+  passageBefore: string;
+  passageAfter: string;
+  documentBefore: string;
+  documentAfter: string;
+}
+
 /**
  * The one open AI suggestion. The request lifecycle lives here; the range and
  * the per-change decisions live in the editor state (`suggestionField`), which
  * this hook mirrors through `syncFromEditor`.
  */
-export function useSuggestion(view: EditorView | null, model: string | null) {
+export function useSuggestion(
+  view: EditorView | null,
+  model: string | null,
+  onApplied: (edit: AppliedEdit) => void,
+) {
   const [state, setState] = useState<SuggestionState>({ status: "idle" });
+  // syncFromEditor runs inside CodeMirror updates; read the latest values via refs.
+  const stateRef = useRef(state);
+  const onAppliedRef = useRef(onApplied);
+  useEffect(() => {
+    stateRef.current = state;
+    onAppliedRef.current = onApplied;
+  });
   const [range, setRange] = useState<SuggestionRange | null>(null);
   const { mutateAsync } = useCreateSuggestion();
   // Bumped on every request and on close, so a late answer can't reopen a closed suggestion.
@@ -153,6 +174,22 @@ export function useSuggestion(view: EditorView | null, model: string | null) {
     const next = update.state.field(suggestionField);
     if (next === update.startState.field(suggestionField)) return;
     setRange(next);
+
+    const current = stateRef.current;
+    const applied = update.transactions.find((transaction) => transaction.isUserEvent("input.ai"));
+    if (applied?.docChanged && current.status === "ready") {
+      applied.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
+        onAppliedRef.current({
+          label: [...current.request.previousLabels, current.request.action.label].join(" → "),
+          model: current.result.model,
+          passageBefore: update.startState.sliceDoc(fromA, toA),
+          passageAfter: inserted.toString(),
+          documentBefore: update.startState.doc.toString(),
+          documentAfter: update.state.doc.toString(),
+        });
+      });
+    }
+
     if (!next) {
       latestRequestId.current++;
       setState({ status: "idle" });
