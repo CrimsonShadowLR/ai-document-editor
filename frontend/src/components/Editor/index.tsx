@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import type { EditorView } from "@codemirror/view";
+import { useCallback, useRef, useState } from "react";
+import type { EditorView, ViewUpdate } from "@codemirror/view";
 
 import { MarkdownEditor } from "./components/MarkdownEditor";
 import { ModelPicker } from "./components/ModelPicker";
@@ -15,8 +15,16 @@ export function Editor() {
   const modelSelection = useSelectedModel();
   const [view, setView] = useState<EditorView | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const { anchors, onUpdate } = useEditorAnchors(wrapperRef);
+  const { anchors, onUpdate: updateAnchors } = useEditorAnchors(wrapperRef);
   const suggestion = useSuggestion(view, modelSelection.selected);
+  const { syncFromEditor } = suggestion;
+  const onUpdate = useCallback(
+    (update: ViewUpdate) => {
+      updateAnchors(update);
+      syncFromEditor(update);
+    },
+    [updateAnchors, syncFromEditor],
+  );
   // Esc hides the popup for this exact selection until it changes.
   const [dismissedSelection, setDismissedSelection] = useState<string | null>(null);
 
@@ -48,8 +56,10 @@ export function Editor() {
           <SuggestionCard
             anchor={anchors.suggestion}
             state={suggestion.state}
-            onAccept={suggestion.accept}
-            onReject={suggestion.reject}
+            range={suggestion.range}
+            onAcceptAll={suggestion.acceptAll}
+            onRejectAll={suggestion.rejectAll}
+            onClose={suggestion.close}
             onRetry={suggestion.retry}
           />
         )}

@@ -25,6 +25,62 @@
   background-color: rgb(220 38 38 / 0.1);
 }
 
+/* While reviewing, the range gets only a faint tint so red/green stand out. */
+.cm-suggestion-ready {
+  background-color: rgb(79 70 229 / 0.04);
+}
+
+/* Inline diff: old words struck through in red, new words in green. */
+.cm-diff-deleted {
+  background-color: rgb(254 226 226);
+  color: rgb(153 27 27);
+  text-decoration: line-through;
+}
+
+.cm-diff-inserted,
+.cm-diff-accepted {
+  white-space: pre-wrap;
+  border-radius: 2px;
+}
+
+.cm-diff-inserted {
+  background-color: rgb(220 252 231);
+  color: rgb(22 101 52);
+}
+
+.cm-diff-accepted {
+  background-color: rgb(240 253 244);
+}
+
+.cm-diff-controls {
+  display: inline-flex;
+  gap: 1px;
+  margin: 0 2px;
+  vertical-align: 1px;
+}
+
+.cm-diff-button {
+  width: 1.15rem;
+  height: 1.15rem;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 4px;
+  background: white;
+  font: 600 11px/1 system-ui, sans-serif;
+  cursor: pointer;
+}
+
+.cm-diff-button-accepted {
+  color: rgb(21 128 61);
+}
+
+.cm-diff-button-rejected {
+  color: rgb(185 28 28);
+}
+
+.cm-diff-button:hover {
+  background-color: rgb(241 245 249);
+}
+
 @keyframes suggestion-pulse {
   0%,
   100% {

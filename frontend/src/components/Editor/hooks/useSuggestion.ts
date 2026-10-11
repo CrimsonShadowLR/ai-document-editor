@@ -1,13 +1,17 @@
 import { useCallback, useRef, useState } from "react";
-import type { EditorView } from "@codemirror/view";
+import type { EditorView, ViewUpdate } from "@codemirror/view";
 
 import { errorMessage } from "../../../shared/httpClient";
 import {
   closeSuggestion,
   openSuggestion,
+  resolveChanges,
   setSuggestionPhase,
+  showSuggestionDiff,
   suggestionField,
+  type SuggestionRange,
 } from "../codemirror/suggestionField";
+import { diffSegments } from "../diff/diffSegments";
 import type { QuickAction } from "../quickActions";
 import type { SuggestionResponse } from "../schema/suggestion";
 import { useCreateSuggestion } from "./useCreateSuggestion";
@@ -38,11 +42,13 @@ function trimRange(selected: string, from: number, to: number) {
 }
 
 /**
- * The one open AI suggestion: ask for it on the current selection, then
- * accept or reject it. The editor keeps the range locked meanwhile.
+ * The one open AI suggestion. The request lifecycle lives here; the range and
+ * the per-change decisions live in the editor state (`suggestionField`), which
+ * this hook mirrors through `syncFromEditor`.
  */
 export function useSuggestion(view: EditorView | null, model: string | null) {
   const [state, setState] = useState<SuggestionState>({ status: "idle" });
+  const [range, setRange] = useState<SuggestionRange | null>(null);
   const { mutateAsync } = useCreateSuggestion();
   // Bumped on every request and on close, so a late answer can't reopen a closed suggestion.
   const latestRequestId = useRef(0);
@@ -63,7 +69,7 @@ export function useSuggestion(view: EditorView | null, model: string | null) {
           turns: [],
         });
         if (requestId !== latestRequestId.current) return;
-        view.dispatch({ effects: setSuggestionPhase.of("ready") });
+        view.dispatch({ effects: showSuggestionDiff.of(diffSegments(request.original, result.replacement)) });
         setState({ status: "ready", request, result });
       } catch (error) {
         if (requestId !== latestRequestId.current) return;
@@ -80,13 +86,10 @@ export function useSuggestion(view: EditorView | null, model: string | null) {
       if (!view) return;
       const doc = view.state.doc;
       const selection = view.state.selection.main;
-      const { from, to } = trimRange(
-        doc.sliceString(selection.from, selection.to),
-        selection.from,
-        selection.to,
-      );
+      const { from, to } = trimRange(doc.sliceString(selection.from, selection.to), selection.from, selection.to);
       if (from === to) return;
-      view.dispatch({ effects: openSuggestion.of({ from, to, phase: "loading" }) });
+      // Collapse the selection so its highlight doesn't cover the diff.
+      view.dispatch({ effects: openSuggestion.of({ from, to }), selection: { anchor: to } });
       void run({
         action,
         before: doc.sliceString(0, from),
@@ -101,30 +104,32 @@ export function useSuggestion(view: EditorView | null, model: string | null) {
     if (state.status === "error") void run(state.request);
   }, [state, run]);
 
+  /** Close without touching the document (cancel, dismiss, nothing to change). */
   const close = useCallback(() => {
-    latestRequestId.current++;
-    setState({ status: "idle" });
     view?.dispatch({ effects: closeSuggestion.of(null) });
     view?.focus();
   }, [view]);
 
-  /** Replace the range with the suggestion in one undoable step. */
-  const accept = useCallback(() => {
-    if (!view || state.status !== "ready") return;
-    const range = view.state.field(suggestionField);
-    if (!range) return;
-    const replacement = state.result.replacement;
-    view.dispatch({
-      changes: { from: range.from, to: range.to, insert: replacement },
-      selection: { anchor: range.from + replacement.length },
-      effects: closeSuggestion.of(null),
-      // Our own edit of the locked range.
-      filter: false,
-    });
-    latestRequestId.current++;
-    setState({ status: "idle" });
-    view.focus();
-  }, [view, state]);
+  const acceptAll = useCallback(() => {
+    if (view) resolveChanges(view, "accepted");
+    view?.focus();
+  }, [view]);
 
-  return { state, request, retry, accept, reject: close };
+  const rejectAll = useCallback(() => {
+    if (view) resolveChanges(view, "rejected");
+    view?.focus();
+  }, [view]);
+
+  /** Mirror the editor's suggestion range; when the editor closes it, so do we. */
+  const syncFromEditor = useCallback((update: ViewUpdate) => {
+    const next = update.state.field(suggestionField);
+    if (next === update.startState.field(suggestionField)) return;
+    setRange(next);
+    if (!next) {
+      latestRequestId.current++;
+      setState({ status: "idle" });
+    }
+  }, []);
+
+  return { state, range, request, retry, close, acceptAll, rejectAll, syncFromEditor };
 }
