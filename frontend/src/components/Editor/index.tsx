@@ -4,6 +4,7 @@ import type { EditorView, ViewUpdate } from "@codemirror/view";
 import { HistoryPanel } from "./components/HistoryPanel";
 import { MarkdownEditor } from "./components/MarkdownEditor";
 import { ModelPicker } from "./components/ModelPicker";
+import { SaveStatus } from "./components/SaveStatus";
 import { SelectionPopup } from "./components/SelectionPopup";
 import { SuggestionCard } from "./components/SuggestionCard";
 import { useDocument } from "./hooks/useDocument";
@@ -103,13 +104,7 @@ export function Editor() {
           lockedReason={suggestion.state.status === "idle" ? null : "Finish the open suggestion to change the model"}
         />
         <div className="flex items-center gap-4">
-          {saveFailed ? (
-            <span className="text-xs text-red-600" title="Browser storage is full or blocked (e.g. private mode)">
-              Not saved
-            </span>
-          ) : (
-            <span className="text-xs text-slate-400">{isSaved ? "Saved" : "Saving…"}</span>
-          )}
+          <SaveStatus isSaved={isSaved} saveFailed={saveFailed} />
           <button
             type="button"
             className="text-sm text-slate-600 hover:text-slate-900"
