@@ -28,11 +28,13 @@ The user writes Markdown. They select text and ask the AI for help (Improve, Sho
 | Endpoint | Input → Output |
 |---|---|
 | `GET /models` | → `{models: string[], default: string}` from `LLM_MODELS` |
-| `POST /suggestions` | `{document, selection, instruction, model, turns[]}` → `{replacement, reason}` |
+| `POST /suggestions` | `{before, selection, after, instruction, model?, turns[]}` → `{replacement, reason, model}` |
 
 `turns[]` holds earlier refine steps (instruction + replacement), so a follow-up builds on the last result.
 
-Errors: no key → 503 with a clear message; provider rate limit → 429; other provider failure → 502.
+The document is sent split around the selection (`before` / `selection` / `after`) instead of text + offsets, because JavaScript and Python count characters differently (emoji).
+
+Errors: no key or no models → 503 with a clear message; unknown model → 400; provider rate limit → 429; provider failure or answer without tags → 502.
 
 ## Steps (one commit each)
 

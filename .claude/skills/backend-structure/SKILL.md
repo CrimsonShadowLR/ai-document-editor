@@ -16,6 +16,7 @@ backend/
     ├── bootstrap.py        # FastAPI app, CORS, request-id logging, error handlers, /healthcheck
     ├── config.py           # ConfigurationVariables (pydantic-settings, reads ../.env)
     ├── observability.py    # structlog + stdlib logging wiring
+    ├── llm/                # LlmClient (httpx, OpenAI-compatible) + provider errors; get_llm_client dependency
     ├── use_cases/
     │   ├── shared/                 # BaseHandler, BaseDataTransfer
     │   └── <domain>/
@@ -30,8 +31,8 @@ backend/
 
 **Handler**: one class per use case.
 ```python
-class SuggestEditHandler(BaseHandler[SuggestEditRequest, SuggestEditResponse]):
-    async def execute(self, request: SuggestEditRequest) -> SuggestEditResponse:
+class CreateSuggestionHandler(BaseHandler[CreateSuggestionRequest, SuggestionResponse]):
+    async def execute(self, request: CreateSuggestionRequest) -> SuggestionResponse:
         ...
 ```
 Raise domain errors from `errors.py`, never `HTTPException`. Logging of start, completion and failure is automatic. Add an `__init__` only for dependencies FastAPI can inject.
@@ -42,16 +43,16 @@ Raise domain errors from `errors.py`, never `HTTPException`. Logging of start, c
 ```python
 router = APIRouter(prefix="/suggestions", tags=["suggestions"])
 
-@router.post("", response_model=SuggestEditResponse)
-async def suggest_edit(request: SuggestEditRequest, handler: SuggestEditHandler = Depends()):
+@router.post("", response_model=SuggestionResponse)
+async def create_suggestion(request: CreateSuggestionRequest, handler: CreateSuggestionHandler = Depends()):
     try:
         return await handler.execute(request)
-    except ProviderUnavailableError as error:
+    except LlmUnavailableError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 ```
 Then `app.include_router(...)` in `main.py`.
 
-**Tests**: `async def test_x(http_client)` hits real endpoints. Mock the AI provider; tests must never call the real API. Run with `make test`.
+**Tests**: `async def test_x(http_client)` hits real endpoints. Override `get_llm_client` with a fake (see `test_suggestions_router.py`), or pass an `httpx.MockTransport` to `LlmClient`. Tests must never call the real API. Run with `make test`.
 
 ## Adding config
 

@@ -22,6 +22,22 @@ class ConfigurationVariables(BaseSettings):
     # call the API as the user.
     cors_origins: Annotated[str, Field(alias="CORS_ORIGINS", min_length=1)]
 
+    # Any OpenAI-compatible /chat/completions API (Groq in dev, OpenRouter in
+    # production). Switching provider only changes these three values.
+    llm_base_url: Annotated[
+        str, Field(alias="LLM_BASE_URL", default="https://openrouter.ai/api/v1")
+    ]
+    llm_api_key: Annotated[str | None, Field(alias="LLM_API_KEY", default=None)]
+    # Comma-separated model IDs offered in the UI; the first is the default.
+    llm_models: Annotated[str, Field(alias="LLM_MODELS", default="")]
+    llm_timeout_seconds: Annotated[float, Field(alias="LLM_TIMEOUT_SECONDS", default=60.0)]
+
+    @property
+    def llm_models_list(self) -> list[str]:
+        """Configured model IDs (trimmed, no empties), default first."""
+
+        return [model.strip() for model in self.llm_models.split(",") if model.strip()]
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Normalized list of allowed CORS origins (trimmed, no empties)."""
