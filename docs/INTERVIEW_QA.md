@@ -6,7 +6,7 @@ Questions a new developer asked after studying the project, with answers checked
 
 1. **Select text.** `useEditorAnchors` measures the selection in CodeMirror's measure phase. If the selection has real text and no suggestion is open, `SelectionPopup` shows.
 2. **Ask.** `useSuggestion.request` trims whitespace from the range, opens it in the `suggestionField` (pulsing, locked), and sends `before / selection / after` + instruction + model to `POST /suggestions`.
-3. **Backend.** `suggestions_router` → `CreateSuggestionHandler` → `LlmClient` (httpx, OpenAI-compatible `/chat/completions`). `prompt.py` builds the messages and parses the `<replacement>` / `<reason>` tags.
+3. **Backend.** `suggestions_router` → `CreateSuggestionHandler` → `LlmClient` (official `openai` SDK against OpenRouter's OpenAI-compatible API). `prompt.py` builds the messages and parses the `<replacement>` / `<reason>` tags.
 4. **Diff.** `diffSegments` (jsdiff `diffWordsWithSpace`) splits the original into unchanged parts and reviewable changes. They are drawn as CodeMirror decorations: red strikethrough, green insertions, ✓ / ✕.
 5. **Decide.** When no change is pending, `resolveChanges` writes the result in one transaction (`userEvent: "input.ai"`), so one Ctrl+Z undoes it.
 6. **History.** `useSuggestion.syncFromEditor` sees that transaction and records a snapshot in `useHistory` (localStorage).
@@ -41,8 +41,8 @@ When an endpoint has logic, dependencies or domain errors. `/models` only reads 
 **5. Why is a provider 401/403 a 502, but a missing key a 503?**
 A missing key means our server isn't configured: 503, and the operator must fix it. A provider rejecting the key is an upstream failure: 502, bad gateway. Returning 401 to the browser would wrongly suggest that the *user* must log in.
 
-**6. Why a new `httpx.AsyncClient` per call?**
-It's simple, and tests can inject a `MockTransport`. The cost is a new TLS handshake per call: tens of milliseconds against a ~2 s model call. A shared client through the app lifespan is a possible improvement.
+**6. How is the HTTP connection to the provider managed?**
+`get_llm_client` is cached, so there is one `AsyncOpenAI` client per process and its connections are pooled. The first version used plain `httpx` with a new client per call; the switch to the official SDK also brought typed errors and one automatic retry (with backoff) on 429/5xx. Tests inject an `httpx.AsyncClient` with a `MockTransport` through the SDK's `http_client`.
 
 **7. The handler reads config directly, but `LlmClient` is injected. Why?**
 It's an inconsistency inherited from the template. Config is a cached singleton, so tests monkeypatch it. Injecting it with `Depends(get_configuration_variables)` would be cleaner.
@@ -126,7 +126,7 @@ The skill says to use tokens, not hex. The CodeMirror tints now derive from `var
 Vitest (`npm test`, 23 tests). The diff logic: exact rebuild of both texts, merge rules, partial accepts. The CodeMirror suggestion state: range mapping, edge typing, the lock, closing on undo, decisions. These run on a bare `EditorState`, with no browser. The full UI flow was tested by hand with Playwright.
 
 **30. What is tested on the backend?**
-pytest (55 tests), with the AI provider always mocked. It covers the endpoints and their error codes, multi-turn messages, the 10-turn cap, blank instructions, tag parsing (last block, stray tags, CRLF), provider error messages, `X-Request-ID`, security headers and the 500 path.
+pytest (57 tests), with the AI provider always mocked. It covers the endpoints and their error codes, multi-turn messages, the 10-turn cap, blank instructions, tag parsing (last block, stray tags, CRLF), provider error messages, `X-Request-ID`, security headers and the 500 path.
 
 ## Trade-offs
 

@@ -18,8 +18,8 @@ The user writes Markdown. They select text and ask the AI for help (Improve, Sho
 | Refine | Follow-up box that keeps earlier turns | Multi-turn: "shorter", then "more formal" |
 | History | Timeline of snapshots after each accepted edit | Shows how the document evolved with AI help |
 | Streaming | No | The diff would jump on every token; a paragraph rewrite is fast anyway |
-| LLM client | Plain `httpx`, OpenAI-compatible `/chat/completions` | One API call; LangChain/LangSmith would be over-engineering |
-| Provider | Generic `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODELS` | OpenRouter ':free' models for dev, the $5 OpenRouter key for production; switch via `.env` only |
+| LLM client | Official `openai` SDK against OpenRouter's OpenAI-compatible API (started as plain `httpx`) | Typed errors, retries, connection pooling; LangChain/LangSmith would be over-engineering |
+| Provider | Generic `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODELS` | OpenRouter ':free' models for dev; production: the $5 OpenRouter key with Claude Haiku 5.5, Gemini 3.8 Flash, GPT-5 mini; switch via `.env` only |
 | Model choice | Picker in the UI, fixed list from config | The user sees the trade-off between models |
 | AI output | Tagged text: `<replacement>…</replacement><reason>…</reason>` | Works on any model, including small free ones; no JSON escaping of Markdown |
 
@@ -54,6 +54,7 @@ All seven steps are done. Changes made along the way:
 - Dev provider: OpenRouter `:free` models instead of Groq. Nemotron is the default because Gemma's free endpoint is often busy upstream.
 - Diff: changes split by 1–2 unchanged words on the same line are merged, so a rewrite isn't nine tiny changes.
 - Shortcuts: Ctrl/⌘+K focuses the popup's instruction box (on top of Ctrl/⌘+Enter and Esc).
+- LLM client moved from plain httpx to the official `openai` SDK (one cached client, 1 automatic retry, typed errors, 402 "out of credits" message); production models set.
 - After a project review: the model picker is locked while a suggestion is open, a failed browser save shows "Not saved", oversized selections get a clear message (context is trimmed to 100k characters per side), and Vitest unit tests cover the diff logic and the CodeMirror suggestion state.
 
 ## Left out on purpose

@@ -1,14 +1,21 @@
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Any, Literal, TypedDict
 
 import httpx
+import openai
 import structlog
+from openai import AsyncOpenAI
 
 from ..config import get_configuration_variables
 from .errors import LlmNotConfiguredError, LlmRateLimitedError, LlmUnavailableError
 
 logger = structlog.get_logger(__name__)
+
+# One automatic retry on 429/5xx/connection errors (the SDK backs off between
+# tries). More would make a busy model feel stuck before the user can switch.
+MAX_RETRIES = 1
 
 
 class ChatMessage(TypedDict):
@@ -34,7 +41,8 @@ class Completion:
 
 
 class LlmClient:
-    """Minimal client for an OpenAI-compatible ``/chat/completions`` API.
+    """Chat completions through the OpenAI SDK, against any OpenAI-compatible
+    API (OpenRouter by default).
 
     Logs model, latency and token usage, never message content.
     """
@@ -44,71 +52,46 @@ class LlmClient:
         base_url: str,
         api_key: str | None,
         timeout_seconds: float,
-        transport: httpx.AsyncBaseTransport | None = None,
+        max_retries: int = MAX_RETRIES,
+        http_client: httpx.AsyncClient | None = None,
     ):
-        self._base_url = base_url.rstrip("/")
-        self._api_key = api_key
-        self._timeout_seconds = timeout_seconds
-        self._transport = transport
+        # Created once and reused, so connections are pooled across requests.
+        self._client = (
+            AsyncOpenAI(
+                api_key=api_key,
+                base_url=base_url,
+                timeout=timeout_seconds,
+                max_retries=max_retries,
+                http_client=http_client,
+            )
+            if api_key
+            else None
+        )
 
     async def complete(self, model: str, messages: list[ChatMessage]) -> Completion:
         """Return the assistant message text and token usage for one chat completion."""
 
-        if not self._api_key:
+        if self._client is None:
             raise LlmNotConfiguredError("LLM_API_KEY is not set in .env.")
 
         start = time.perf_counter()
         try:
-            async with httpx.AsyncClient(
-                transport=self._transport, timeout=self._timeout_seconds
-            ) as client:
-                response = await client.post(
-                    f"{self._base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {self._api_key}"},
-                    json={"model": model, "messages": messages, "temperature": 0.4},
-                )
-        except httpx.TimeoutException as error:
-            raise LlmUnavailableError("The AI provider timed out.") from error
-        except httpx.HTTPError as error:
-            raise LlmUnavailableError("Could not reach the AI provider.") from error
-
-        duration_ms = round((time.perf_counter() - start) * 1000, 2)
-
-        if response.is_error:
-            # The provider's own message says why (daily quota, model busy
-            # upstream, ...). It never contains the document, only the error.
-            provider_error = _provider_error(response)
-            logger.warning(
-                "llm.failed",
-                model=model,
-                status_code=response.status_code,
-                duration_ms=duration_ms,
-                provider_error=provider_error,
+            response = await self._client.chat.completions.create(
+                model=model, messages=messages, temperature=0.4
             )
-            if response.status_code == 429:
-                raise LlmRateLimitedError(
-                    "This model is rate limited right now. Try again shortly or pick another model."
-                )
-            if response.status_code in (401, 403):
-                raise LlmUnavailableError("The AI provider rejected the API key.")
-            if response.status_code >= 500:
-                # OpenRouter answers 502/503 when the model's upstream is down
-                # or busy; another model usually works.
-                raise LlmUnavailableError(
-                    f"The AI provider failed (HTTP {response.status_code}). "
-                    "Try again or pick another model."
-                )
-            raise LlmUnavailableError(f"The AI provider failed (HTTP {response.status_code}).")
+        except openai.APITimeoutError as error:
+            raise LlmUnavailableError("The AI provider timed out.") from error
+        except openai.APIConnectionError as error:
+            raise LlmUnavailableError("Could not reach the AI provider.") from error
+        except openai.APIStatusError as error:
+            raise _status_error(error, model, _elapsed_ms(start)) from error
 
-        try:
-            body = response.json()
-            content = body["choices"][0]["message"]["content"]
-        except (ValueError, KeyError, IndexError, TypeError) as error:
-            raise LlmUnavailableError("The AI provider returned an unexpected response.") from error
+        duration_ms = _elapsed_ms(start)
+        content = response.choices[0].message.content if response.choices else None
         if not isinstance(content, str) or not content.strip():
             raise LlmUnavailableError("The AI provider returned an empty response.")
 
-        usage = _token_usage(body.get("usage"))
+        usage = _token_usage(response.usage.model_dump() if response.usage else None)
         logger.info(
             "llm.completed",
             model=model,
@@ -119,6 +102,40 @@ class LlmClient:
             cost_usd=usage.cost_usd,
         )
         return Completion(content=content, usage=usage)
+
+
+def _elapsed_ms(start: float) -> float:
+    return round((time.perf_counter() - start) * 1000, 2)
+
+
+def _status_error(error: openai.APIStatusError, model: str, duration_ms: float) -> Exception:
+    """Map the provider's HTTP error (after the SDK's retries) to our domain errors."""
+
+    status_code = error.status_code
+    # The provider's own message says why (credits used up, model busy
+    # upstream, ...). It never contains the document, only the error.
+    logger.warning(
+        "llm.failed",
+        model=model,
+        status_code=status_code,
+        duration_ms=duration_ms,
+        provider_error=_provider_error(error),
+    )
+    if status_code == 429:
+        return LlmRateLimitedError(
+            "This model is rate limited right now. Try again shortly or pick another model."
+        )
+    if status_code in (401, 403):
+        return LlmUnavailableError("The AI provider rejected the API key.")
+    if status_code == 402:
+        return LlmUnavailableError("The AI provider account is out of credits.")
+    if status_code >= 500:
+        # OpenRouter answers 502/503 when the model's upstream is down or busy;
+        # another model usually works.
+        return LlmUnavailableError(
+            f"The AI provider failed (HTTP {status_code}). Try again or pick another model."
+        )
+    return LlmUnavailableError(f"The AI provider failed (HTTP {status_code}).")
 
 
 def _token_usage(raw: Any) -> TokenUsage:
@@ -146,18 +163,20 @@ def _token_usage(raw: Any) -> TokenUsage:
     )
 
 
-def _provider_error(response: httpx.Response) -> str | None:
-    """Best-effort short error message from an OpenAI-style error body."""
+def _provider_error(error: openai.APIStatusError) -> str | None:
+    """Best-effort short message from the provider's error body."""
 
-    try:
-        message = response.json()["error"]["message"]
-    except (ValueError, KeyError, TypeError):
-        message = response.text
+    body = error.body
+    message = body.get("message") if isinstance(body, dict) else None
+    if not message:
+        message = error.response.text
     return str(message)[:300] or None
 
 
+@lru_cache
 def get_llm_client() -> LlmClient:
-    """FastAPI dependency; tests override it with a fake."""
+    """FastAPI dependency: one client (and connection pool) per process.
+    Tests override it with a fake."""
 
     config = get_configuration_variables()
     return LlmClient(

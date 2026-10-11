@@ -26,11 +26,11 @@ cd frontend && npm install && npm run dev
 
 Open http://localhost:5173. An example document is loaded on the first visit, so you can try the AI right away.
 
-`.env.example` lists two free OpenRouter models (`:free`, no credits needed, about 50 requests a day). Any OpenAI-compatible provider works: set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODELS`.
+`.env.example` lists three cheap paid models (Claude Haiku 5.5, Gemini 3.8 Flash, GPT-5 mini; about $0.0001–0.001 per edit) and, commented out, two free ones for a key without credits. Any OpenAI-compatible provider works: set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODELS`.
 
 **Token and cost usage:** open http://localhost:8000/usage to see requests, tokens (prompt, completion, reasoning) and cost in USD per feature (Improve, Shorter, Formal, custom instruction, refine) and per model. The totals are kept in memory since the backend started. Every AI call also writes an `llm.completed` log line with the same numbers. Free models report $0.
 
-Checks: `make test` (backend: 55 pytest tests with the AI mocked; frontend: 23 Vitest tests for the diff logic and the CodeMirror suggestion state), `make lint`, `make build`.
+Checks: `make test` (backend: 57 pytest tests with the AI mocked; frontend: 23 Vitest tests for the diff logic and the CodeMirror suggestion state), `make lint`, `make build`.
 
 ## How to use it
 
@@ -55,18 +55,18 @@ My reading of "collaborative" is that **the user stays the author**. The AI work
 - **Decide per change.** You can take the AI's better verb and keep your own sentence. Partial results are written to the document in one transaction, so one Ctrl+Z undoes the AI edit.
 - **Multi-turn refine.** Earlier rounds are sent as conversation turns, so "now more formal" builds on the last version. The card shows the trail (Improve → Shorter → Formal).
 - **Version history.** Every applied edit is saved with its label, model and diff. Restoring is also recorded, and your own edits are saved first if no version holds them yet, so a restore never loses work. The newest 30 versions are kept.
-- **The model is your choice.** A picker shows the models from config. When a free model is busy, the error says so and suggests another one.
+- **The model is your choice.** A picker shows the models from config. When a model is busy, the error says so and suggests another one.
 
 ### Architecture
 
 ```
 frontend (React + CodeMirror 6)                 backend (FastAPI)                OpenRouter
 selection → popup → POST /suggestions  ──────▶  prompt + tag parsing  ──────▶  /chat/completions
-inline diff (jsdiff) ← {replacement, reason} ◀──  LlmClient (httpx)     ◀──────
+inline diff (jsdiff) ← {replacement, reason} ◀──  LlmClient (openai SDK) ◀─────
 history + document in localStorage
 ```
 
-- **Backend** (`backend/src`): a thin proxy, so the API key never reaches the browser. `use_cases/suggestions/create_suggestion/prompt.py` holds the prompt and parses the model's `<replacement>…</replacement><reason>…</reason>` answer. `llm/llm_client.py` is about 120 lines of httpx for any OpenAI-compatible API. Its logs record model, latency and tokens, never document text.
+- **Backend** (`backend/src`): a thin proxy, so the API key never reaches the browser. `use_cases/suggestions/create_suggestion/prompt.py` holds the prompt and parses the model's `<replacement>…</replacement><reason>…</reason>` answer. `llm/llm_client.py` wraps the official `openai` SDK (one pooled client, one automatic retry) for any OpenAI-compatible API. Its logs record model, latency and tokens, never document text.
 - **Frontend** (`frontend/src/components/Editor`): `codemirror/suggestionField.ts` keeps the open suggestion in CodeMirror state. Its range follows edits elsewhere and is locked while you review, and the diff is drawn with decorations. `diff/diffSegments.ts` turns the jsdiff output into reviewable changes.
 - The full list of decisions, with a reason for each, is in [`docs/PLAN.md`](docs/PLAN.md).
 - [`docs/INTERVIEW_QA.md`](docs/INTERVIEW_QA.md) answers 33 questions about how it works and why (from a review by a fresh pair of eyes).
@@ -75,7 +75,7 @@ history + document in localStorage
 
 - **No database, Docker or auth.** The brief asks for no extra infrastructure. One user's document and history fit in localStorage.
 - **No streaming.** The output is a diff, and with streaming it would jump on every token. Rewriting a paragraph takes about 2 s, so a loading state works fine.
-- **No LangChain or LangSmith.** This is one API call with no agents, tools or retrieval. A small httpx client is easier to read and debug.
+- **No LangChain or LangSmith.** This is one API call with no agents, tools or retrieval. The official OpenAI SDK, pointed at OpenRouter, is all it needs.
 - **One open suggestion at a time.** Several suggestions with overlapping ranges add a lot of complexity for little gain in a single-user editor.
 - **Raw Markdown, not WYSIWYG.** A text editor makes diffs exact and simple. Rich-text diffs over a document tree are much harder to get right.
 - **Tagged output instead of JSON mode.** Not every free model supports JSON mode, and escaping Markdown inside JSON breaks easily.
