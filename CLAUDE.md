@@ -27,6 +27,7 @@ Chiri engineering assessment: a collaborative AI document editor for Markdown. T
 - No streaming: a loading state on the selection, then the full diff. Streaming goes under 'with more time'.
 - LLM client: plain `httpx` POST to an OpenAI-compatible `/chat/completions`. No LangChain, no LangSmith (one API call, no agents/RAG; structlog covers logging).
 - AI output format: tagged text `<replacement>…</replacement><reason>…</reason>` (works on any model).
+- Frontend tests: Vitest (dev dependency, approved by the user), `npm test`. Pure logic and CodeMirror state only, no DOM.
 - The full build plan is in `docs/PLAN.md`. Keep it updated when a decision changes.
 - The assessment PDF stays out of git (`.gitignore`).
 

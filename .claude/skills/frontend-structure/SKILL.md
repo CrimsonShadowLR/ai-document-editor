@@ -30,6 +30,10 @@ frontend/src/
 
 The `Editor` feature also has `codemirror/` (the suggestion `StateField`, its decorations and range lock) and `diff/` (`diffSegments.ts`: jsdiff output → reviewable changes).
 
+## Tests
+
+Vitest (`npm test`). Test files sit next to the code (`diffSegments.test.ts`). Test pure logic and CodeMirror state on a bare `EditorState` (no DOM); never call the real API.
+
 ## Data flow
 
 ```

@@ -5,7 +5,7 @@ help:
 	@echo "install    install backend (uv) and frontend (npm) dependencies"
 	@echo "backend    run the API on http://localhost:8000 (auto-reload)"
 	@echo "frontend   run the web app on http://localhost:5173"
-	@echo "test       backend tests"
+	@echo "test       backend (pytest) + frontend (vitest) tests"
 	@echo "lint       frontend lint"
 	@echo "build      frontend type-check + build"
 
@@ -24,6 +24,7 @@ frontend: env
 
 test:
 	cd backend && uv run pytest src/test -v
+	cd frontend && npm test
 
 lint:
 	cd frontend && npm run lint

@@ -28,7 +28,7 @@ Open http://localhost:5173. An example document is loaded on the first visit, so
 
 `.env.example` lists two free OpenRouter models (`:free`, no credits needed, about 50 requests a day). Any OpenAI-compatible provider works: set `LLM_BASE_URL`, `LLM_API_KEY` and `LLM_MODELS`.
 
-Checks: `make test` (backend, 44 tests, the AI is mocked), `make lint`, `make build`.
+Checks: `make test` (backend: 44 pytest tests with the AI mocked; frontend: 23 Vitest tests for the diff logic and the CodeMirror suggestion state), `make lint`, `make build`.
 
 ## How to use it
 
@@ -79,7 +79,7 @@ history + document in localStorage
 
 ## What I'd do differently with more time
 
-- **Frontend tests.** Add Vitest for `diffSegments` and the CodeMirror state field. I checked the diff logic with a script and the UI with Playwright by hand, but those checks aren't part of the repo yet.
+- **UI tests.** The diff logic and the CodeMirror state have unit tests, but the full flow (popup → diff → accept → history) was only tested by hand with Playwright. I'd turn those scripts into end-to-end tests.
 - **Prompt evaluations.** Build a small set of documents and instructions, scored for "edits only the selection", "keeps Markdown" and "follows the format", to compare models and prompt changes.
 - **Smarter rate-limit handling.** Free models are often busy. The app could retry with the next model automatically.
 - **Proactive review.** A "Review document" action where the AI proposes several small edits across the whole document. This needs several open suggestions at once.

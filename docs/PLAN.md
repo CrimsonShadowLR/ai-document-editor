@@ -53,6 +53,7 @@ All seven steps are done. Changes made along the way:
 - Dev provider: OpenRouter `:free` models instead of Groq. Nemotron is the default because Gemma's free endpoint is often busy upstream.
 - Diff: changes split by 1–2 unchanged words on the same line are merged, so a rewrite isn't nine tiny changes.
 - Shortcuts: Ctrl/⌘+K focuses the popup's instruction box (on top of Ctrl/⌘+Enter and Esc).
+- After a project review: the model picker is locked while a suggestion is open, a failed browser save shows "Not saved", oversized selections get a clear message (context is trimmed to 100k characters per side), and Vitest unit tests cover the diff logic and the CodeMirror suggestion state.
 
 ## Left out on purpose
 
