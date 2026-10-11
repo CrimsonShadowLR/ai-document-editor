@@ -11,6 +11,30 @@
 /* Light-only for now: without this, Tailwind's `dark:` variant follows the OS. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Range of the open AI suggestion in the editor (see codemirror/suggestionField.ts). */
+.cm-suggestion {
+  background-color: rgb(79 70 229 / 0.1);
+  border-radius: 2px;
+}
+
+.cm-suggestion-loading {
+  animation: suggestion-pulse 1.2s ease-in-out infinite;
+}
+
+.cm-suggestion-error {
+  background-color: rgb(220 38 38 / 0.1);
+}
+
+@keyframes suggestion-pulse {
+  0%,
+  100% {
+    background-color: rgb(79 70 229 / 0.06);
+  }
+  50% {
+    background-color: rgb(79 70 229 / 0.22);
+  }
+}
+
 @layer base {
   :focus-visible {
     outline: 2px solid var(--color-brand);
