@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+/* Design tokens — use `bg-brand`, `text-brand`, `hover:bg-brand-hover`, never
+   a hardcoded hex. Change the palette here and the whole app follows. */
+@theme {
+  --color-brand: #4f46e5;
+  --color-brand-hover: #4338ca;
+  --color-surface: #f8fafc;
+}
+
+/* Light-only for now: without this, Tailwind's `dark:` variant follows the OS. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+}
