@@ -37,11 +37,18 @@ export function diffSegments(original: string, replacement: string): Segment[] {
       });
     }
   }
-  return mergeAcrossSpaces(segments);
+  return mergeSmallGaps(segments);
 }
 
-/** "the quick → a fast" reads better as one change than as two with a lone space between. */
-function mergeAcrossSpaces(segments: Segment[]): Segment[] {
+/** Most unchanged words a gap between two changes may have and still be merged. */
+const MAX_GAP_WORDS = 2;
+
+/**
+ * Merge changes separated only by a short unchanged gap on the same line.
+ * A rewrite otherwise splits into many tiny changes ("~~is a~~ benefits ✓✕
+ * the team ~~in a lot of ways~~ …") that are tedious to review one by one.
+ */
+function mergeSmallGaps(segments: Segment[]): Segment[] {
   const merged: Segment[] = [];
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index];
@@ -49,7 +56,7 @@ function mergeAcrossSpaces(segments: Segment[]): Segment[] {
     const next = segments[index + 1];
     if (
       segment.kind === "same" &&
-      /^[ \t]+$/.test(segment.text) &&
+      isSmallGap(segment.text) &&
       previous?.kind === "change" &&
       next?.kind === "change"
     ) {
@@ -61,6 +68,12 @@ function mergeAcrossSpaces(segments: Segment[]): Segment[] {
     merged.push(segment.kind === "change" ? { ...segment } : segment);
   }
   return merged;
+}
+
+function isSmallGap(text: string): boolean {
+  if (text.includes("\n")) return false;
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  return words <= MAX_GAP_WORDS;
 }
 
 /** The text the range ends up with, given each change's decision. Pending counts as rejected. */

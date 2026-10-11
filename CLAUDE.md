@@ -18,11 +18,11 @@ Chiri engineering assessment: a collaborative AI document editor for Markdown. T
 - Editor: CodeMirror 6 (raw Markdown text) via `@uiw/react-codemirror`.
 - Diff: jsdiff (`diff` package), highlights drawn by us.
 - Model: the user picks it in the UI from a fixed list of 2–3 model IDs in backend config (`LLM_MODELS`).
-- Provider: generic OpenAI-compatible settings in `.env`: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODELS`. Switching provider changes only `.env`. Develop and test with the user's own OpenRouter key (no credits) and ':free' models: `google/gemma-4-31b-it:free` (default), `nvidia/nemotron-3-super-120b-a12b:free`. The $5 OpenRouter key from Chiri is the production key: never use it until everything is set up and the user says so.
+- Provider: generic OpenAI-compatible settings in `.env`: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODELS`. Switching provider changes only `.env`. Develop and test with the user's own OpenRouter key (no credits) and ':free' models: `nvidia/nemotron-3-super-120b-a12b:free` (default; Gemma is often busy upstream), `google/gemma-4-31b-it:free`. The $5 OpenRouter key from Chiri is the production key: never use it until everything is set up and the user says so.
 - Suggestions: inline tracked changes in the editor (red strikethrough / green insertions), accept or reject each one. One open suggestion at a time.
 - Trigger: select text, a small popup appears with quick actions (Improve, Shorter, Formal) and a custom instruction.
 - Refine: a follow-up box under the suggestion ('make it shorter'). The AI updates the same suggestion and keeps the earlier turns.
-- Accept/reject: per change, plus 'Accept all' / 'Reject all' for the suggestion.
+- Accept/reject: per change (word diff; changes split by 1–2 unchanged words on the same line are merged), plus 'Accept all' / 'Reject all' for the suggestion.
 - History: a simple timeline. Each accepted AI edit saves a snapshot to localStorage; the user can view and restore it.
 - No streaming: a loading state on the selection, then the full diff. Streaming goes under 'with more time'.
 - LLM client: plain `httpx` POST to an OpenAI-compatible `/chat/completions`. No LangChain, no LangSmith (one API call, no agents/RAG; structlog covers logging).
