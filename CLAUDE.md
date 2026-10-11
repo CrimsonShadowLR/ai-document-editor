@@ -18,7 +18,7 @@ Chiri engineering assessment: a collaborative AI document editor for Markdown. T
 - Editor: CodeMirror 6 (raw Markdown text) via `@uiw/react-codemirror`.
 - Diff: jsdiff (`diff` package), highlights drawn by us.
 - Model: the user picks it in the UI from a fixed list of 2–3 model IDs in backend config (`LLM_MODELS`).
-- Provider: generic OpenAI-compatible settings in `.env`: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODELS`. Switching provider changes only `.env`. Develop and test with Groq's free tier. The $5 OpenRouter key from Chiri is the production key: never use it until everything is set up and the user says so.
+- Provider: generic OpenAI-compatible settings in `.env`: `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODELS`. Switching provider changes only `.env`. Develop and test with the user's own OpenRouter key (no credits) and ':free' models: `google/gemma-4-31b-it:free` (default), `nvidia/nemotron-3-super-120b-a12b:free`. The $5 OpenRouter key from Chiri is the production key: never use it until everything is set up and the user says so.
 - Suggestions: inline tracked changes in the editor (red strikethrough / green insertions), accept or reject each one. One open suggestion at a time.
 - Trigger: select text, a small popup appears with quick actions (Improve, Shorter, Formal) and a custom instruction.
 - Refine: a follow-up box under the suggestion ('make it shorter'). The AI updates the same suggestion and keeps the earlier turns.
@@ -33,4 +33,4 @@ Chiri engineering assessment: a collaborative AI document editor for Markdown. T
 ## Architecture
 - Backend: see the `backend-structure` skill (router → handler, no DB).
 - Frontend: see the `frontend-structure` skill (feature folders, React Query).
-- Secrets go only in `.env`, never in code, chat or commits. AI session transcripts go in `ai-sessions/`.
+- Secrets go only in `.env`, never in code, chat or commits. Never read `.env`; the user edits it. AI session transcripts go in `ai-sessions/`.

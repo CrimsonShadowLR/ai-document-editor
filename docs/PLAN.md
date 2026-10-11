@@ -19,7 +19,7 @@ The user writes Markdown. They select text and ask the AI for help (Improve, Sho
 | History | Timeline of snapshots after each accepted edit | Shows how the document evolved with AI help |
 | Streaming | No | The diff would jump on every token; a paragraph rewrite is fast anyway |
 | LLM client | Plain `httpx`, OpenAI-compatible `/chat/completions` | One API call; LangChain/LangSmith would be over-engineering |
-| Provider | Generic `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODELS` | Groq free tier for dev, OpenRouter for production; switch via `.env` only |
+| Provider | Generic `LLM_BASE_URL` / `LLM_API_KEY` / `LLM_MODELS` | OpenRouter ':free' models for dev, the $5 OpenRouter key for production; switch via `.env` only |
 | Model choice | Picker in the UI, fixed list from config | The user sees the trade-off between models |
 | AI output | Tagged text: `<replacement>…</replacement><reason>…</reason>` | Works on any model, including small free ones; no JSON escaping of Markdown |
 

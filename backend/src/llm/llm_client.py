@@ -56,14 +56,23 @@ class LlmClient:
 
         duration_ms = round((time.perf_counter() - start) * 1000, 2)
 
-        if response.status_code == 429:
-            logger.warning("llm.rate_limited", model=model, duration_ms=duration_ms)
-            raise LlmRateLimitedError("The AI provider is rate limiting requests. Try again shortly.")
-        if response.status_code in (401, 403):
-            logger.warning("llm.auth_failed", model=model, status_code=response.status_code)
-            raise LlmUnavailableError("The AI provider rejected the API key.")
         if response.is_error:
-            logger.warning("llm.failed", model=model, status_code=response.status_code)
+            # The provider's own message says why (daily quota, model busy
+            # upstream, ...). It never contains the document, only the error.
+            provider_error = _provider_error(response)
+            logger.warning(
+                "llm.failed",
+                model=model,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                provider_error=provider_error,
+            )
+            if response.status_code == 429:
+                raise LlmRateLimitedError(
+                    "This model is rate limited right now. Try again shortly or pick another model."
+                )
+            if response.status_code in (401, 403):
+                raise LlmUnavailableError("The AI provider rejected the API key.")
             raise LlmUnavailableError(f"The AI provider failed (HTTP {response.status_code}).")
 
         try:
@@ -83,6 +92,16 @@ class LlmClient:
             completion_tokens=usage.get("completion_tokens"),
         )
         return content
+
+
+def _provider_error(response: httpx.Response) -> str | None:
+    """Best-effort short error message from an OpenAI-style error body."""
+
+    try:
+        message = response.json()["error"]["message"]
+    except (ValueError, KeyError, TypeError):
+        message = response.text
+    return str(message)[:300] or None
 
 
 def get_llm_client() -> LlmClient:
